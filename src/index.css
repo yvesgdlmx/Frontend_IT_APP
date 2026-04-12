@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+.custom-scroll::-webkit-scrollbar {
+  width: 14px;
+  background: #f4f4f5;         /* Gris muy claro */
+  border-radius: 8px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: #b0b3b8;         /* Gris medio, elegante */
+  border-radius: 8px;
+  border: 2px solid #f4f4f5;   /* Borde para efecto "separado" */
+}
+
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  background: #888b92;         /* Gris más oscuro al pasar el mouse */
+}
+
+.custom-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #b0b3b8 #f4f4f5;
+}
