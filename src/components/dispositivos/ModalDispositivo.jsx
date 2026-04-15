@@ -59,10 +59,7 @@ const ModalDispositivo = ({
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formulario.cuentaRelacionadaId) {
-      setError("Debes seleccionar una cuenta para asignar el dispositivo.");
-      return;
-    }
+    // ❌ YA NO ES OBLIGATORIO
 
     setError("");
 
@@ -72,10 +69,17 @@ const ModalDispositivo = ({
       nombreSistema: formulario.nombreSistema.trim(),
       area: formulario.area.trim(),
       usuarioActual: formulario.usuarioActual.trim(),
+
+      // ✅ SOLO SI EXISTE CUENTA
       cuentaPadreId:
-        formulario.tipoAsignacion === "padre" ? formulario.cuentaRelacionadaId : null,
+        formulario.tipoAsignacion === "padre" && formulario.cuentaRelacionadaId
+          ? formulario.cuentaRelacionadaId
+          : null,
+
       cuentaHijaId:
-        formulario.tipoAsignacion === "hija" ? formulario.cuentaRelacionadaId : null,
+        formulario.tipoAsignacion === "hija" && formulario.cuentaRelacionadaId
+          ? formulario.cuentaRelacionadaId
+          : null,
     };
 
     const ok = await onGuardar(payload);
@@ -215,9 +219,8 @@ const ModalDispositivo = ({
                     value={formulario.cuentaRelacionadaId}
                     onChange={handleChange}
                     className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
-                    required
                   >
-                    <option value="">Selecciona una cuenta</option>
+                    <option value="">Sin asignar</option>
                     {opcionesRelacionadas.map((cuenta) => (
                       <option key={cuenta.id} value={cuenta.id}>
                         {cuenta.label}
