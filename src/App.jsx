@@ -6,6 +6,7 @@ import Login from './paginas/Login'
 import Cuentas365 from './paginas/Cuentas365'
 import Dashboard from './paginas/Dashboard'
 import Dispositivos from './paginas/Dispositivos'
+import Credenciales from './paginas/Credenciales'
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path="cuentas365" element={<Cuentas365 />} />
           <Route path="dispositivos" element={<Dispositivos />} />
+          <Route path='credenciales' element={<Credenciales/>}/>
         </Route>
 
       </Routes>
