@@ -32,7 +32,7 @@ const generarPassword = () => {
   return pass;
 };
 
-const ModalCredencial = ({
+const ModalCredenciales = ({
   abierto,
   cerrar,
   onGuardar,
@@ -387,4 +387,4 @@ const ModalCredencial = ({
   );
 };
 
-export default ModalCredencial;
+export default ModalCredenciales;

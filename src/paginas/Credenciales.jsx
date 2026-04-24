@@ -16,7 +16,7 @@ import {
 } from "react-icons/fi";
 
 import clienteAxios from "../config/clienteAxios";
-import ModalCredencial from "../components/credenciales/ModalCredencial";
+import ModalCredenciales from "../components/credenciales/ModalCredenciales";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import ToastMensaje from "../components/ui/ToastMensaje";
 
@@ -436,7 +436,7 @@ const Credenciales = () => {
         </div>
       </div>
 
-      <ModalCredencial
+      <ModalCredenciales
         key={`${modoModal}-${credencialEditar?.id || "nuevo"}-${
           modalAbierto ? "open" : "closed"
         }`}
