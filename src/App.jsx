@@ -23,7 +23,7 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path="cuentas365" element={<Cuentas365 />} />
           <Route path="dispositivos" element={<Dispositivos />} />
-          <Route path='credenciales' element={<Credenciales/>}/>
+          <Route path="credenciales" element={<Credenciales/>}/>
         </Route>
 
       </Routes>
