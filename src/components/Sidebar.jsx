@@ -38,7 +38,7 @@ const menu = [
   {
     section: "Seguridad",
     items: [
-      { name: "Credenciales", icon: Shield, path: "/credenciales" }
+      { name: "Credenciales", icon: Shield, path: "/dashboard/credenciales" }
     ]
   },
   {
