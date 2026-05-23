@@ -1,11 +1,13 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Modal from "react-modal";
 import {
   HiOutlineComputerDesktop,
   HiOutlineKey,
   HiOutlineUserCircle,
 } from "react-icons/hi2";
+import { FiEye, FiEyeOff } from "react-icons/fi";
 import { FaMicrosoft } from "react-icons/fa";
+import clienteAxios from "../../config/clienteAxios";
 
 Modal.setAppElement("#root");
 
@@ -16,6 +18,22 @@ const FamiliaModal = ({
   onEditar,
   onEliminar,
 }) => {
+  const [passwordsVisibles, setPasswordsVisibles] = useState({});
+  const [solicitudPassword, setSolicitudPassword] = useState(null);
+  const [claveRevelado, setClaveRevelado] = useState("");
+  const [errorRevelado, setErrorRevelado] = useState("");
+  const [revelando, setRevelando] = useState(false);
+
+  useEffect(() => {
+    if (!abierto) {
+      setPasswordsVisibles({});
+      setSolicitudPassword(null);
+      setClaveRevelado("");
+      setErrorRevelado("");
+      setRevelando(false);
+    }
+  }, [abierto]);
+
   if (!cuenta) return null;
 
   const cuentas = [
@@ -27,6 +45,73 @@ const FamiliaModal = ({
     if (n >= 5) return "bg-rose-500";
     if (n >= 4) return "bg-amber-500";
     return "bg-sky-500";
+  };
+
+  const getPasswordKey = (c) => `${c.esPrincipal ? "padre" : "hija"}-${c.id}`;
+
+  const abrirSolicitudPassword = (c) => {
+    setSolicitudPassword(c);
+    setClaveRevelado("");
+    setErrorRevelado("");
+  };
+
+  const cerrarSolicitudPassword = () => {
+    if (revelando) return;
+
+    setSolicitudPassword(null);
+    setClaveRevelado("");
+    setErrorRevelado("");
+  };
+
+  const alternarPassword = (c) => {
+    const key = getPasswordKey(c);
+
+    if (passwordsVisibles[key]) {
+      setPasswordsVisibles((prev) => {
+        const nuevoEstado = { ...prev };
+        delete nuevoEstado[key];
+        return nuevoEstado;
+      });
+      return;
+    }
+
+    abrirSolicitudPassword(c);
+  };
+
+  const confirmarRevelado = async (e) => {
+    e.preventDefault();
+
+    if (!solicitudPassword) return;
+
+    if (!claveRevelado.trim()) {
+      setErrorRevelado("Ingresa la contrasena de autorizacion.");
+      return;
+    }
+
+    setRevelando(true);
+    setErrorRevelado("");
+
+    try {
+      const { data } = await clienteAxios.post("/cuentas/password/revelar", {
+        id: solicitudPassword.id,
+        tipo: solicitudPassword.esPrincipal ? "padre" : "hija",
+        clave: claveRevelado,
+      });
+
+      setPasswordsVisibles((prev) => ({
+        ...prev,
+        [getPasswordKey(solicitudPassword)]: data.password || "",
+      }));
+      setSolicitudPassword(null);
+      setClaveRevelado("");
+      setErrorRevelado("");
+    } catch (error) {
+      setErrorRevelado(
+        error.response?.data?.error || "No fue posible mostrar la contrasena."
+      );
+    } finally {
+      setRevelando(false);
+    }
   };
 
   return (
@@ -99,9 +184,32 @@ const FamiliaModal = ({
                       ) : null}
                     </div>
 
-                    <div className="mt-1 flex items-center gap-1 text-xs font-mono text-slate-400">
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-mono text-slate-400">
                       <HiOutlineKey className="text-[12px]" />
-                      {c.password}
+                      <span className="min-w-[96px]">
+                        {passwordsVisibles[getPasswordKey(c)] || "************"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => alternarPassword(c)}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+                        title={
+                          passwordsVisibles[getPasswordKey(c)]
+                            ? "Ocultar contrasena"
+                            : "Mostrar contrasena"
+                        }
+                        aria-label={
+                          passwordsVisibles[getPasswordKey(c)]
+                            ? `Ocultar contrasena de ${c.email}`
+                            : `Mostrar contrasena de ${c.email}`
+                        }
+                      >
+                        {passwordsVisibles[getPasswordKey(c)] ? (
+                          <FiEyeOff size={14} />
+                        ) : (
+                          <FiEye size={14} />
+                        )}
+                      </button>
                     </div>
 
                     <p className="mt-1 text-xs text-slate-500">
@@ -167,6 +275,55 @@ const FamiliaModal = ({
           </button>
         </div>
       </div>
+
+      {solicitudPassword ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/40 px-4">
+          <form
+            onSubmit={confirmarRevelado}
+            className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl"
+          >
+            <h3 className="text-base font-semibold text-slate-900">
+              Autorizar visualizacion
+            </h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Ingresa la contrasena de autorizacion para ver esta cuenta.
+            </p>
+
+            <input
+              type="password"
+              value={claveRevelado}
+              onChange={(e) => setClaveRevelado(e.target.value)}
+              className="mt-4 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
+              placeholder="Contrasena de autorizacion"
+              autoFocus
+            />
+
+            {errorRevelado ? (
+              <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                {errorRevelado}
+              </div>
+            ) : null}
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={cerrarSolicitudPassword}
+                disabled={revelando}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-70"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={revelando}
+                className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-70"
+              >
+                {revelando ? "Validando..." : "Ver contrasena"}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </Modal>
   );
 };

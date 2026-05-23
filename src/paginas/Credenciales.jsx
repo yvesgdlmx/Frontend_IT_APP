@@ -16,7 +16,7 @@ import {
 } from "react-icons/fi";
 
 import clienteAxios from "../config/clienteAxios";
-import ModalCredenciales from "../components/credenciales/ModalCredenciales"
+import ModalCredenciales from "../components/credenciales/ModalCredenciales";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import ToastMensaje from "../components/ui/ToastMensaje";
 
