@@ -4,6 +4,8 @@ import LayoutProtegido from './layouts/LayoutProtegido'
 import { AuthProvider } from './context/AuthContext'
 
 import Login from './paginas/Login'
+import OlvidePassword from './paginas/OlvidePassword'
+import RestablecerPassword from './paginas/RestablecerPassword'
 import Cuentas365 from './paginas/Cuentas365'
 import Dashboard from './paginas/Dashboard'
 import Dispositivos from './paginas/Dispositivos'
@@ -24,6 +26,8 @@ function App() {
           {/* LOGIN */}
           <Route path="/" element={<AuthLayout />}>
             <Route index element={<Login />} />
+            <Route path="recuperar-password" element={<OlvidePassword />} />
+            <Route path="recuperar-password/:token" element={<RestablecerPassword />} />
           </Route>
 
           {/* APP */}

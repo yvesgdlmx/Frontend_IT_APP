@@ -212,6 +212,7 @@ const Reportes = () => {
     trabajo: [],
   });
   const [cargando, setCargando] = useState(true);
+  const [paginaAreas, setPaginaAreas] = useState(1);
 
   const cargarReportes = async () => {
     setCargando(true);
@@ -276,6 +277,18 @@ const Reportes = () => {
       }, {}),
     };
   }, [datos]);
+
+  const areasPorPagina = 5;
+  const areasDispositivos = Object.entries(reportes.dispositivosPorArea);
+  const totalPaginasAreas = Math.max(Math.ceil(areasDispositivos.length / areasPorPagina), 1);
+  const areasVisibles = areasDispositivos.slice(
+    (paginaAreas - 1) * areasPorPagina,
+    paginaAreas * areasPorPagina
+  );
+
+  useEffect(() => {
+    setPaginaAreas(1);
+  }, [areasDispositivos.length]);
 
   const tarjetas = [
     { label: "Cuentas", valor: reportes.cuentas.length, icon: FiUsers },
@@ -463,12 +476,24 @@ const Reportes = () => {
             </div>
 
             <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-base font-semibold text-slate-900">Dispositivos por area</p>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-base font-semibold text-slate-900">Dispositivos por area</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {areasDispositivos.length} areas registradas
+                  </p>
+                </div>
+                {areasDispositivos.length > areasPorPagina ? (
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-500">
+                    {paginaAreas}/{totalPaginasAreas}
+                  </span>
+                ) : null}
+              </div>
               <div className="mt-5 space-y-3">
-                {Object.entries(reportes.dispositivosPorArea).length === 0 ? (
+                {areasDispositivos.length === 0 ? (
                   <p className="text-sm text-slate-500">Sin dispositivos registrados.</p>
                 ) : (
-                  Object.entries(reportes.dispositivosPorArea).map(([area, total]) => (
+                  areasVisibles.map(([area, total]) => (
                     <div key={area}>
                       <div className="mb-1.5 flex items-center justify-between text-xs">
                         <span className="font-medium text-slate-600">{area}</span>
@@ -484,6 +509,28 @@ const Reportes = () => {
                   ))
                 )}
               </div>
+
+              {areasDispositivos.length > areasPorPagina ? (
+                <div className="mt-5 flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                  <button
+                    onClick={() => setPaginaAreas((prev) => Math.max(prev - 1, 1))}
+                    disabled={paginaAreas === 1}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Anterior
+                  </button>
+                  <p className="text-xs font-medium text-slate-500">
+                    Mostrando {areasVisibles.length} de {areasDispositivos.length}
+                  </p>
+                  <button
+                    onClick={() => setPaginaAreas((prev) => Math.min(prev + 1, totalPaginasAreas))}
+                    disabled={paginaAreas === totalPaginasAreas}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              ) : null}
             </div>
 
             <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">

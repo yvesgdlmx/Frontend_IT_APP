@@ -32,6 +32,10 @@ const Credenciales = () => {
   const [tabActiva, setTabActiva] = useState("m365");
   const [busqueda, setBusqueda] = useState("");
   const [visibles, setVisibles] = useState({});
+  const [passwordsReveladas, setPasswordsReveladas] = useState({});
+  const [solicitudPassword, setSolicitudPassword] = useState(null);
+  const [codigoAutorizacion, setCodigoAutorizacion] = useState("");
+  const [validandoCodigo, setValidandoCodigo] = useState(false);
 
   const [registros, setRegistros] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -85,11 +89,30 @@ const Credenciales = () => {
     });
   }, [registros, tabActiva, busqueda]);
 
-  const togglePassword = (id) => {
-    setVisibles((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
+  const solicitarPassword = (item, accion = "ver") => {
+    if (accion === "ver" && visibles[item.id]) {
+      setVisibles((prev) => ({
+        ...prev,
+        [item.id]: false,
+      }));
+      return;
+    }
+
+    if (passwordsReveladas[item.id]) {
+      if (accion === "copiar") {
+        copiar(passwordsReveladas[item.id]);
+        return;
+      }
+
+      setVisibles((prev) => ({
+        ...prev,
+        [item.id]: true,
+      }));
+      return;
+    }
+
+    setSolicitudPassword({ item, accion });
+    setCodigoAutorizacion("");
   };
 
   const copiar = async (texto) => {
@@ -105,6 +128,45 @@ const Credenciales = () => {
         tipo: "error",
         texto: "No fue posible copiar.",
       });
+    }
+  };
+
+  const confirmarReveladoPassword = async (e) => {
+    e.preventDefault();
+
+    if (!solicitudPassword) return;
+
+    setValidandoCodigo(true);
+
+    try {
+      const { data } = await clienteAxios.post("/credenciales/password/revelar", {
+        id: solicitudPassword.item.id,
+        clave: codigoAutorizacion,
+      });
+
+      setPasswordsReveladas((prev) => ({
+        ...prev,
+        [solicitudPassword.item.id]: data.password || "",
+      }));
+
+      if (solicitudPassword.accion === "copiar") {
+        await copiar(data.password || "");
+      } else {
+        setVisibles((prev) => ({
+          ...prev,
+          [solicitudPassword.item.id]: true,
+        }));
+      }
+
+      setSolicitudPassword(null);
+      setCodigoAutorizacion("");
+    } catch (error) {
+      setMensaje({
+        tipo: "error",
+        texto: error.response?.data?.error || "No fue posible validar el codigo.",
+      });
+    } finally {
+      setValidandoCodigo(false);
     }
   };
 
@@ -358,13 +420,13 @@ const Credenciales = () => {
                               <div className="flex items-center gap-2">
                                 <span className="font-mono text-slate-700">
                                   {visibles[item.id]
-                                    ? item.password
-                                    : "••••••••••••"}
+                                    ? passwordsReveladas[item.id] || "************"
+                                    : "************"}
                                 </span>
 
                                 <button
                                   onClick={() =>
-                                    togglePassword(item.id)
+                                    solicitarPassword(item, "ver")
                                   }
                                   className="text-slate-500 hover:text-slate-800"
                                 >
@@ -395,7 +457,7 @@ const Credenciales = () => {
                               <div className="flex justify-end gap-2">
                                 <button
                                   onClick={() =>
-                                    copiar(item.password)
+                                    solicitarPassword(item, "copiar")
                                   }
                                   className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                                   title="Copiar"
@@ -466,6 +528,81 @@ const Credenciales = () => {
           setCredencialEliminar(null);
         }}
       />
+
+      {solicitudPassword ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-slate-950/55 backdrop-blur-sm"
+            onClick={() => {
+              if (validandoCodigo) return;
+              setSolicitudPassword(null);
+              setCodigoAutorizacion("");
+            }}
+          />
+
+          <form
+            onSubmit={confirmarReveladoPassword}
+            className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.24)]"
+          >
+            <div className="border-b border-slate-200 bg-[linear-gradient(180deg,_#ffffff,_#f8fafc)] px-6 py-5">
+              <div className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">
+                Autorizacion requerida
+              </div>
+              <h2 className="mt-3 text-xl font-semibold text-slate-900">
+                Ver contrasena
+              </h2>
+              <p className="mt-2 text-sm text-slate-500">
+                Ingresa el codigo de visualizacion para acceder a esta credencial.
+              </p>
+            </div>
+
+            <div className="space-y-4 p-6">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-sm font-semibold text-slate-900">
+                  {solicitudPassword.item.nombre}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {solicitudPassword.item.usuario}
+                </p>
+              </div>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-slate-700">
+                  Codigo de autorizacion
+                </span>
+                <input
+                  type="password"
+                  value={codigoAutorizacion}
+                  onChange={(e) => setCodigoAutorizacion(e.target.value)}
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-200"
+                  autoFocus
+                  required
+                />
+              </label>
+
+              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  disabled={validandoCodigo}
+                  onClick={() => {
+                    setSolicitudPassword(null);
+                    setCodigoAutorizacion("");
+                  }}
+                  className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                >
+                  Cancelar
+                </button>
+                <button
+                  disabled={validandoCodigo}
+                  className="rounded-2xl bg-[linear-gradient(135deg,_#0f172a,_#1e293b,_#334155)] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:brightness-110 disabled:opacity-70"
+                >
+                  {validandoCodigo ? "Validando..." : "Autorizar"}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      ) : null}
 
       <ToastMensaje
         abierto={Boolean(mensaje.texto)}

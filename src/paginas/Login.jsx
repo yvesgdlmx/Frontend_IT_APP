@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import {
   FiLock,
   FiMail,
@@ -116,6 +116,15 @@ const Login = () => {
                 {enviando ? "Validando..." : "Login"}
               </button>
             </form>
+
+            <div className="mt-4 text-center">
+              <Link
+                to="/recuperar-password"
+                className="text-xs font-semibold text-sky-200 transition hover:text-white"
+              >
+                Olvide mi contrasena
+              </Link>
+            </div>
 
             <p className="mt-6 text-center text-xs text-slate-500">
               Acceso seguro para usuarios autorizados
