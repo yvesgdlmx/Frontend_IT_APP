@@ -109,7 +109,18 @@ const EspacioTrabajo = () => {
     [items]
   );
 
-  const itemsFiltrados = items.filter((item) => item.tipo === tabActiva);
+  const itemsFiltrados = useMemo(() => {
+    const filtrados = items.filter((item) => item.tipo === tabActiva);
+
+    if (tabActiva !== "actividad") return filtrados;
+
+    return [...filtrados].sort((a, b) => {
+      const aCompletada = a.estado === "completada";
+      const bCompletada = b.estado === "completada";
+
+      return Number(aCompletada) - Number(bCompletada);
+    });
+  }, [items, tabActiva]);
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
@@ -409,7 +420,7 @@ const EspacioTrabajo = () => {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid gap-3">
+                  <div className="grid max-h-[38rem] gap-3 overflow-y-auto pr-2">
                     {itemsFiltrados.map((item) => {
                       const completada = item.estado === "completada";
 
