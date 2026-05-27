@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   FiCheck,
   FiCheckCircle,
+  FiEdit2,
   FiFileText,
   FiImage,
   FiList,
@@ -71,6 +72,7 @@ const EspacioTrabajo = () => {
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
+  const [itemEditar, setItemEditar] = useState(null);
   const [itemEliminar, setItemEliminar] = useState(null);
   const [mensaje, setMensaje] = useState({ tipo: "", texto: "" });
 
@@ -133,6 +135,7 @@ const EspacioTrabajo = () => {
 
   const limpiarFormulario = () => {
     setFormulario(estadoInicial);
+    setItemEditar(null);
   };
 
   const guardarItem = async (e) => {
@@ -140,22 +143,41 @@ const EspacioTrabajo = () => {
     setGuardando(true);
 
     try {
-      const { data } = await clienteAxios.post(
-        "/trabajo",
-        crearFormData(formulario, tabActiva),
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+      if (itemEditar) {
+        const { data } = await clienteAxios.put(
+          `/trabajo/${itemEditar.id}`,
+          crearFormData(formulario, itemEditar.tipo),
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
 
-      setItems((prev) => [data, ...prev]);
+        setItems((prev) => prev.map((item) => (item.id === data.id ? data : item)));
+        setMensaje({
+          tipo: "success",
+          texto: "Registro actualizado correctamente.",
+        });
+      } else {
+        const { data } = await clienteAxios.post(
+          "/trabajo",
+          crearFormData(formulario, tabActiva),
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
+
+        setItems((prev) => [data, ...prev]);
+        setMensaje({
+          tipo: "success",
+          texto: "Registro creado correctamente.",
+        });
+      }
+
       limpiarFormulario();
-      setMensaje({
-        tipo: "success",
-        texto: "Registro creado correctamente.",
-      });
     } catch (error) {
       setMensaje({
         tipo: "error",
@@ -164,6 +186,18 @@ const EspacioTrabajo = () => {
     } finally {
       setGuardando(false);
     }
+  };
+
+  const abrirEditar = (item) => {
+    setItemEditar(item);
+    setTabActiva(item.tipo);
+    setFormulario({
+      titulo: item.titulo || "",
+      contenido: item.contenido || "",
+      prioridad: item.prioridad || "media",
+      fechaLimite: item.fechaLimite || "",
+      archivos: [],
+    });
   };
 
   const completarActividad = async (item) => {
@@ -186,6 +220,9 @@ const EspacioTrabajo = () => {
     try {
       await clienteAxios.delete(`/trabajo/${itemEliminar.id}`);
       setItems((prev) => prev.filter((item) => item.id !== itemEliminar.id));
+      if (itemEditar?.id === itemEliminar.id) {
+        limpiarFormulario();
+      }
       setItemEliminar(null);
       setMensaje({
         tipo: "success",
@@ -202,11 +239,17 @@ const EspacioTrabajo = () => {
   };
 
   const nombreAccion =
-    tabActiva === "actividad"
-      ? "Crear actividad"
-      : tabActiva === "nota"
-        ? "Crear nota"
-        : "Crear apunte";
+    itemEditar
+      ? itemEditar.tipo === "actividad"
+        ? "Editar actividad"
+        : itemEditar.tipo === "nota"
+          ? "Editar nota"
+          : "Editar apunte"
+      : tabActiva === "actividad"
+        ? "Crear actividad"
+        : tabActiva === "nota"
+          ? "Crear nota"
+          : "Crear apunte";
 
   return (
     <>
@@ -385,13 +428,25 @@ const EspacioTrabajo = () => {
                     </label>
                   ) : null}
 
-                  <button
-                    disabled={guardando}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,_#0f172a,_#1e293b,_#334155)] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-                  >
-                    <FiPlus size={16} />
-                    {guardando ? "Guardando..." : nombreAccion}
-                  </button>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <button
+                      disabled={guardando}
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,_#0f172a,_#1e293b,_#334155)] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {itemEditar ? <FiCheck size={16} /> : <FiPlus size={16} />}
+                      {guardando ? "Guardando..." : itemEditar ? "Guardar cambios" : nombreAccion}
+                    </button>
+
+                    {itemEditar ? (
+                      <button
+                        type="button"
+                        onClick={limpiarFormulario}
+                        className="rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                      >
+                        Cancelar
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               </form>
 
@@ -487,6 +542,15 @@ const EspacioTrabajo = () => {
                                   {completada ? "Completada" : "Completar"}
                                 </button>
                               ) : null}
+
+                              <button
+                                onClick={() => abrirEditar(item)}
+                                className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50"
+                                title="Editar"
+                                aria-label={`Editar ${item.titulo}`}
+                              >
+                                <FiEdit2 size={15} />
+                              </button>
 
                               <button
                                 onClick={() => setItemEliminar(item)}
