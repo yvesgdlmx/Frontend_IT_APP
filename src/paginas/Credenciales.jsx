@@ -13,6 +13,7 @@ import {
   FiLock,
   FiEdit2,
   FiTrash2,
+  FiMoreHorizontal,
 } from "react-icons/fi";
 
 import clienteAxios from "../config/clienteAxios";
@@ -27,6 +28,7 @@ const Credenciales = () => {
     { id: "redes", label: "Redes", icon: FiWifi },
     { id: "vpn", label: "VPN", icon: FiLock },
     { id: "servidores", label: "Servidores", icon: FiServer },
+    { id: "otros", label: "Otras", icon: FiMoreHorizontal },
   ];
 
   const [tabActiva, setTabActiva] = useState("m365");

@@ -182,6 +182,7 @@ const ModalCredenciales = ({
                     <option value="redes">Redes</option>
                     <option value="vpn">VPN</option>
                     <option value="servidores">Servidores</option>
+                    <option value="otros">Otras credenciales</option>
                   </select>
                 </label>
 
