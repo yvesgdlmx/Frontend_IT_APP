@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FiKey, FiSave, FiShield } from "react-icons/fi";
+import { FiKey, FiMail, FiSave, FiShield } from "react-icons/fi";
 import clienteAxios from "../config/clienteAxios";
 import { useAuth } from "../context/AuthContext";
 
@@ -7,16 +7,37 @@ const Configuracion = () => {
   const { usuario } = useAuth();
   const [formulario, setFormulario] = useState({
     passwordAdmin: "",
+    codigoCorreo: "",
     nuevoCodigo: "",
     confirmarCodigo: "",
   });
   const [mensaje, setMensaje] = useState({ tipo: "", texto: "" });
   const [guardando, setGuardando] = useState(false);
+  const [enviandoCorreo, setEnviandoCorreo] = useState(false);
+  const [metodoAutorizacion, setMetodoAutorizacion] = useState("password");
 
   const esAdmin = usuario?.rol === "admin";
 
   const handleChange = (e) => {
     setFormulario((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const solicitarCodigoCorreo = async () => {
+    setMensaje({ tipo: "", texto: "" });
+    setEnviandoCorreo(true);
+
+    try {
+      const { data } = await clienteAxios.post("/auth/codigo-365/correo");
+      setMensaje({ tipo: "success", texto: data.mensaje });
+      setMetodoAutorizacion("correo");
+    } catch (error) {
+      setMensaje({
+        tipo: "error",
+        texto: error.response?.data?.error || "No fue posible enviar el codigo por correo.",
+      });
+    } finally {
+      setEnviandoCorreo(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -25,10 +46,14 @@ const Configuracion = () => {
     setGuardando(true);
 
     try {
-      const { data } = await clienteAxios.put("/auth/codigo-365", formulario);
+      const { data } = await clienteAxios.put("/auth/codigo-365", {
+        ...formulario,
+        metodoAutorizacion,
+      });
       setMensaje({ tipo: "success", texto: data.mensaje });
       setFormulario({
         passwordAdmin: "",
+        codigoCorreo: "",
         nuevoCodigo: "",
         confirmarCodigo: "",
       });
@@ -88,19 +113,78 @@ const Configuracion = () => {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
-                <label className="block md:col-span-2">
+                <div className="md:col-span-2">
                   <span className="mb-2 block text-sm font-medium text-slate-700">
-                    Contrasena del administrador
+                    Cambiar codigo usando
                   </span>
-                  <input
-                    type="password"
-                    name="passwordAdmin"
-                    value={formulario.passwordAdmin}
-                    onChange={handleChange}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
-                    required
-                  />
-                </label>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => setMetodoAutorizacion("password")}
+                      className={`inline-flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+                        metodoAutorizacion === "password"
+                          ? "border-slate-900 bg-slate-900 text-white"
+                          : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-white"
+                      }`}
+                    >
+                      <FiShield />
+                      Contrasena admin
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMetodoAutorizacion("correo")}
+                      className={`inline-flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+                        metodoAutorizacion === "correo"
+                          ? "border-slate-900 bg-slate-900 text-white"
+                          : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-white"
+                      }`}
+                    >
+                      <FiMail />
+                      Codigo por correo
+                    </button>
+                  </div>
+                </div>
+
+                {metodoAutorizacion === "password" ? (
+                  <label className="block md:col-span-2">
+                    <span className="mb-2 block text-sm font-medium text-slate-700">
+                      Contrasena del administrador
+                    </span>
+                    <input
+                      type="password"
+                      name="passwordAdmin"
+                      value={formulario.passwordAdmin}
+                      onChange={handleChange}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
+                      required
+                    />
+                  </label>
+                ) : (
+                  <div className="grid gap-4 md:col-span-2 md:grid-cols-[1fr_auto] md:items-end">
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-medium text-slate-700">
+                        Codigo recibido por correo
+                      </span>
+                      <input
+                        type="password"
+                        name="codigoCorreo"
+                        value={formulario.codigoCorreo}
+                        onChange={handleChange}
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
+                        required
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={solicitarCodigoCorreo}
+                      disabled={enviandoCorreo}
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-70"
+                    >
+                      <FiMail />
+                      {enviandoCorreo ? "Enviando..." : "Enviar codigo"}
+                    </button>
+                  </div>
+                )}
 
                 <label className="block">
                   <span className="mb-2 block text-sm font-medium text-slate-700">
@@ -112,7 +196,7 @@ const Configuracion = () => {
                     value={formulario.nuevoCodigo}
                     onChange={handleChange}
                     className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
-                    minLength={6}
+                    minLength={4}
                     required
                   />
                 </label>
@@ -127,7 +211,7 @@ const Configuracion = () => {
                     value={formulario.confirmarCodigo}
                     onChange={handleChange}
                     className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
-                    minLength={6}
+                    minLength={4}
                     required
                   />
                 </label>
