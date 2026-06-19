@@ -39,12 +39,17 @@ const ModalCredenciales = ({
   guardando = false,
   modo = "crear",
   credencialInicial = null,
+  categorias = [],
+  categoriaActiva = "m365",
 }) => {
   const [formulario, setFormulario] = useState(crearFormularioInicial());
   const [mostrarPass, setMostrarPass] = useState(false);
   const [error, setError] = useState("");
 
   const esEdicion = modo === "editar";
+  const categoriaActual =
+    categorias.find((categoria) => categoria.id === formulario.categoria) ||
+    categorias.find((categoria) => categoria.id === categoriaActiva);
 
   useEffect(() => {
     if (!abierto) return;
@@ -63,12 +68,15 @@ const ModalCredenciales = ({
         notas: credencialInicial.notas || "",
       });
     } else {
-      setFormulario(crearFormularioInicial());
+      setFormulario({
+        ...crearFormularioInicial(),
+        categoria: categoriaActiva,
+      });
     }
 
     setError("");
     setMostrarPass(false);
-  }, [abierto, esEdicion, credencialInicial]);
+  }, [abierto, esEdicion, credencialInicial, categoriaActiva]);
 
   const fuerzaPassword = useMemo(() => {
     const pass = formulario.password;
@@ -165,26 +173,37 @@ const ModalCredenciales = ({
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                <label>
-                  <span className="mb-2 block text-sm font-medium text-slate-700">
-                    Categoría
-                  </span>
+                {esEdicion ? (
+                  <label>
+                    <span className="mb-2 block text-sm font-medium text-slate-700">
+                      Categoría
+                    </span>
 
-                  <select
-                    name="categoria"
-                    value={formulario.categoria}
-                    onChange={handleChange}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
-                  >
-                    <option value="m365">Microsoft 365</option>
-                    <option value="cpanel">cPanel</option>
-                    <option value="correo">Correos</option>
-                    <option value="redes">Redes</option>
-                    <option value="vpn">VPN</option>
-                    <option value="servidores">Servidores</option>
-                    <option value="otros">Otras credenciales</option>
-                  </select>
-                </label>
+                    <select
+                      name="categoria"
+                      value={formulario.categoria}
+                      onChange={handleChange}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                    >
+                      <option value="m365">Microsoft 365</option>
+                      <option value="cpanel">cPanel</option>
+                      <option value="redes">Redes</option>
+                      <option value="vpn">VPN</option>
+                      <option value="servidores">Servidores</option>
+                      <option value="otros">Otras credenciales</option>
+                    </select>
+                  </label>
+                ) : (
+                  <div>
+                    <span className="mb-2 block text-sm font-medium text-slate-700">
+                      Categoría
+                    </span>
+
+                    <div className="rounded-2xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-700">
+                      {categoriaActual?.label || "Sección actual"}
+                    </div>
+                  </div>
+                )}
 
                 <label>
                   <span className="mb-2 block text-sm font-medium text-slate-700">

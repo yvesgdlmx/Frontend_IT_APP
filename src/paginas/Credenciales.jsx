@@ -188,10 +188,18 @@ const Credenciales = () => {
     setGuardando(true);
 
     try {
+      const payloadFinal =
+        modoModal === "crear"
+          ? {
+              ...payload,
+              categoria: tabActiva,
+            }
+          : payload;
+
       if (modoModal === "editar" && credencialEditar?.id) {
         const { data } = await clienteAxios.put(
           `/credenciales/${credencialEditar.id}`,
-          payload
+          payloadFinal
         );
 
         setRegistros((prev) =>
@@ -207,7 +215,7 @@ const Credenciales = () => {
       } else {
         const { data } = await clienteAxios.post(
           "/credenciales",
-          payload
+          payloadFinal
         );
 
         setRegistros((prev) => [data, ...prev]);
@@ -503,7 +511,9 @@ const Credenciales = () => {
       <ModalCredenciales
         key={`${modoModal}-${credencialEditar?.id || "nuevo"}-${
           modalAbierto ? "open" : "closed"
-        }`}
+        }-${tabActiva}`}
+        categorias={categorias}
+        categoriaActiva={tabActiva}
         abierto={modalAbierto}
         cerrar={() => setModalAbierto(false)}
         onGuardar={guardarCredencial}
