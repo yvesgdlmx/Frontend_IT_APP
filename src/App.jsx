@@ -12,6 +12,7 @@ import Dispositivos from './paginas/Dispositivos'
 import Credenciales from './paginas/Credenciales'
 import Configuracion from './paginas/Configuracion'
 import Vencimientos from './paginas/Vencimientos'
+import Agenda from './paginas/Agenda'
 import EspacioTrabajo from './paginas/EspacioTrabajo'
 import Usuarios from './paginas/Usuarios'
 import Licencias from './paginas/Licencias'
@@ -35,6 +36,7 @@ function App() {
             <Route index element={<Dashboard />} />
             <Route path="cuentas365" element={<Cuentas365 />} />
             <Route path="licencias" element={<Licencias />} />
+            <Route path="agenda" element={<Agenda />} />
             <Route path="vencimientos" element={<Vencimientos />} />
             <Route path="dispositivos" element={<Dispositivos />} />
             <Route path='credenciales' element={<Credenciales/>}/>

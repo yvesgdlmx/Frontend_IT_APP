@@ -6,6 +6,7 @@ import {
   Laptop,
   Shield,
   CalendarClock,
+  CalendarDays,
   BarChart3,
   Settings,
   LogOut,
@@ -20,7 +21,8 @@ const menu = [
     section: "General",
     items: [
       { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard", exact: true },
-      { name: "Mi espacio", icon: NotebookTabs, path: "/dashboard/mi-espacio" }
+      { name: "Mi espacio", icon: NotebookTabs, path: "/dashboard/mi-espacio" },
+      { name: "Agenda TI", icon: CalendarDays, path: "/dashboard/agenda" }
     ]
   },
   {
