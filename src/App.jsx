@@ -9,6 +9,7 @@ import RestablecerPassword from './paginas/RestablecerPassword'
 import Cuentas365 from './paginas/Cuentas365'
 import Dashboard from './paginas/Dashboard'
 import Dispositivos from './paginas/Dispositivos'
+import MapaIp from './paginas/MapaIp'
 import Credenciales from './paginas/Credenciales'
 import Configuracion from './paginas/Configuracion'
 import Vencimientos from './paginas/Vencimientos'
@@ -39,6 +40,7 @@ function App() {
             <Route path="agenda" element={<Agenda />} />
             <Route path="vencimientos" element={<Vencimientos />} />
             <Route path="dispositivos" element={<Dispositivos />} />
+            <Route path="mapa-ip" element={<MapaIp />} />
             <Route path='credenciales' element={<Credenciales/>}/>
             <Route path="mi-espacio" element={<EspacioTrabajo />} />
             <Route path="usuarios" element={<Usuarios />} />

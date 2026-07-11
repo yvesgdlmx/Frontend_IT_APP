@@ -4,6 +4,7 @@ import {
   KeyRound,
   Users,
   Laptop,
+  Network,
   Shield,
   CalendarClock,
   CalendarDays,
@@ -36,7 +37,8 @@ const menu = [
   {
     section: "Infraestructura",
     items: [
-      { name: "Dispositivos", icon: Laptop, path: "/dashboard/dispositivos" }
+      { name: "Dispositivos", icon: Laptop, path: "/dashboard/dispositivos" },
+      { name: "Mapa IP", icon: Network, path: "/dashboard/mapa-ip" }
     ]
   },
   {
