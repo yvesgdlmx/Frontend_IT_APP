@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   FiCalendar,
+  FiCpu,
   FiDollarSign,
   FiEdit2,
   FiKey,
+  FiMonitor,
   FiPlus,
   FiSearch,
   FiTrash2,
+  FiUser,
 } from "react-icons/fi";
 import clienteAxios from "../config/clienteAxios.jsx";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
@@ -62,21 +65,32 @@ const formatoDinero = (valor, moneda) => {
 
 const Licencias = () => {
   const [licencias, setLicencias] = useState([]);
+  const [dispositivos, setDispositivos] = useState([]);
   const [formulario, setFormulario] = useState(estadoInicial);
   const [busqueda, setBusqueda] = useState("");
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
+  const [asignando, setAsignando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
+  const [liberandoId, setLiberandoId] = useState("");
   const [licenciaEditar, setLicenciaEditar] = useState(null);
   const [licenciaEliminar, setLicenciaEliminar] = useState(null);
+  const [licenciaSeleccionada, setLicenciaSeleccionada] = useState(null);
+  const [dispositivoAsignar, setDispositivoAsignar] = useState("");
+  const [notasAsignacion, setNotasAsignacion] = useState("");
   const [mensaje, setMensaje] = useState({ tipo: "", texto: "" });
 
   const cargarLicencias = async () => {
     setCargando(true);
 
     try {
-      const { data } = await clienteAxios.get("/licencias");
-      setLicencias(Array.isArray(data) ? data : []);
+      const [respuestaLicencias, respuestaDispositivos] = await Promise.all([
+        clienteAxios.get("/licencias"),
+        clienteAxios.get("/dispositivos"),
+      ]);
+
+      setLicencias(Array.isArray(respuestaLicencias.data) ? respuestaLicencias.data : []);
+      setDispositivos(Array.isArray(respuestaDispositivos.data) ? respuestaDispositivos.data : []);
     } catch (error) {
       setMensaje({
         tipo: "error",
@@ -91,15 +105,35 @@ const Licencias = () => {
     cargarLicencias();
   }, []);
 
+  useEffect(() => {
+    if (!licenciaSeleccionada) return;
+
+    const actualizada = licencias.find((item) => item.id === licenciaSeleccionada.id);
+    setLicenciaSeleccionada(actualizada || null);
+  }, [licencias, licenciaSeleccionada]);
+
   const resumen = useMemo(
     () => ({
       total: licencias.length,
       activas: licencias.filter((item) => item.estado === "activa").length,
       porVencer: licencias.filter((item) => item.estado === "por_vencer").length,
       asientos: licencias.reduce((acc, item) => acc + Number(item.cantidadTotal || 0), 0),
+      asignadas: licencias.reduce((acc, item) => acc + Number(item.cantidadUsada || 0), 0),
     }),
     [licencias]
   );
+
+  const dispositivosDisponibles = useMemo(() => {
+    if (!licenciaSeleccionada) return [];
+
+    const asignados = new Set(
+      (licenciaSeleccionada.asignaciones || [])
+        .map((asignacion) => asignacion.dispositivo?.id)
+        .filter(Boolean)
+    );
+
+    return dispositivos.filter((dispositivo) => !asignados.has(dispositivo.id));
+  }, [dispositivos, licenciaSeleccionada]);
 
   const licenciasFiltradas = licencias.filter((item) => {
     const termino = busqueda.trim().toLowerCase();
@@ -124,6 +158,12 @@ const Licencias = () => {
   const limpiarFormulario = () => {
     setFormulario(estadoInicial);
     setLicenciaEditar(null);
+  };
+
+  const seleccionarLicencia = (licencia) => {
+    setLicenciaSeleccionada(licencia);
+    setDispositivoAsignar("");
+    setNotasAsignacion("");
   };
 
   const guardarLicencia = async (e) => {
@@ -192,6 +232,55 @@ const Licencias = () => {
     }
   };
 
+  const asignarDispositivo = async (e) => {
+    e.preventDefault();
+
+    if (!licenciaSeleccionada || !dispositivoAsignar) {
+      setMensaje({ tipo: "error", texto: "Selecciona una licencia y un dispositivo." });
+      return;
+    }
+
+    setAsignando(true);
+
+    try {
+      const { data } = await clienteAxios.post(`/licencias/${licenciaSeleccionada.id}/dispositivos`, {
+        dispositivoId: dispositivoAsignar,
+        notas: notasAsignacion,
+      });
+
+      setLicencias((prev) => prev.map((item) => (item.id === data.id ? data : item)));
+      setLicenciaSeleccionada(data);
+      setDispositivoAsignar("");
+      setNotasAsignacion("");
+      setMensaje({ tipo: "success", texto: "Dispositivo asignado a la licencia." });
+    } catch (error) {
+      setMensaje({
+        tipo: "error",
+        texto: error.response?.data?.error || "No fue posible asignar el dispositivo.",
+      });
+    } finally {
+      setAsignando(false);
+    }
+  };
+
+  const liberarAsignacion = async (asignacion) => {
+    setLiberandoId(asignacion.id);
+
+    try {
+      const { data } = await clienteAxios.patch(`/licencias/asignaciones/${asignacion.id}/liberar`);
+      setLicencias((prev) => prev.map((item) => (item.id === data.id ? data : item)));
+      setLicenciaSeleccionada(data);
+      setMensaje({ tipo: "success", texto: "Licencia liberada del dispositivo." });
+    } catch (error) {
+      setMensaje({
+        tipo: "error",
+        texto: error.response?.data?.error || "No fue posible liberar la licencia.",
+      });
+    } finally {
+      setLiberandoId("");
+    }
+  };
+
   return (
     <>
       <div className="min-h-screen bg-[linear-gradient(180deg,_#f4f8ff_0%,_#f8fafc_32%,_#ffffff_100%)] px-4 py-4 sm:px-6 sm:py-6 2xl:px-8">
@@ -224,8 +313,12 @@ const Licencias = () => {
                   <p className="mt-2 text-2xl font-semibold text-slate-900">{resumen.porVencer}</p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Asientos</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Contratadas</p>
                   <p className="mt-2 text-2xl font-semibold text-slate-900">{resumen.asientos}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Asignadas</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-900">{resumen.asignadas}</p>
                 </div>
               </div>
             </div>
@@ -273,10 +366,12 @@ const Licencias = () => {
                     <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Total</span>
                     <input type="number" min="1" name="cantidadTotal" value={formulario.cantidadTotal} onChange={handleChange} className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-200" />
                   </label>
-                  <label className="block">
-                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Usadas</span>
-                    <input type="number" min="0" name="cantidadUsada" value={formulario.cantidadUsada} onChange={handleChange} className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-200" />
-                  </label>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <span className="block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Uso automatico</span>
+                    <p className="mt-2 text-sm font-semibold text-slate-900">
+                      Se calcula con dispositivos asignados
+                    </p>
+                  </div>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-3">
@@ -423,6 +518,9 @@ const Licencias = () => {
                                 </td>
                                 <td className="px-4 py-4">
                                   <div className="flex justify-end gap-2">
+                                    <button onClick={() => seleccionarLicencia(item)} className="flex h-9 w-9 items-center justify-center rounded-xl border border-sky-200 bg-sky-50 text-sky-700 transition hover:bg-sky-100" title="Asignar dispositivos">
+                                      <FiMonitor size={15} />
+                                    </button>
                                     <button onClick={() => abrirEditar(item)} className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50" title="Editar">
                                       <FiEdit2 size={15} />
                                     </button>
@@ -441,6 +539,155 @@ const Licencias = () => {
                 </div>
               </div>
             </div>
+          </section>
+
+          <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <div className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">
+                  Asignaciones
+                </div>
+                <h2 className="mt-3 text-lg font-semibold text-slate-900">
+                  Dispositivos que usan la licencia
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  El porcentaje del KPI se calcula con estas asignaciones activas.
+                </p>
+              </div>
+
+              {licenciaSeleccionada ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    {licenciaSeleccionada.nombre}
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-900">
+                    {licenciaSeleccionada.cantidadUsada}/{licenciaSeleccionada.cantidadTotal}
+                  </p>
+                  <p className="text-xs font-medium text-slate-500">
+                    {Number(licenciaSeleccionada.porcentajeUso || 0).toFixed(1)}% de uso
+                  </p>
+                </div>
+              ) : null}
+            </div>
+
+            {!licenciaSeleccionada ? (
+              <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center">
+                <FiMonitor className="mx-auto text-slate-400" size={28} />
+                <p className="mt-3 text-sm font-semibold text-slate-900">Selecciona una licencia</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  Usa el icono de monitor en la tabla para administrar sus dispositivos.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-5 grid gap-5 xl:grid-cols-[0.36fr_0.64fr]">
+                <form onSubmit={asignarDispositivo} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-sm font-semibold text-slate-900">Asignar dispositivo</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    Se usara el usuario actual del dispositivo como evidencia de quien utiliza la licencia.
+                  </p>
+
+                  <div className="mt-4 space-y-3">
+                    <label className="block">
+                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Dispositivo</span>
+                      <select
+                        value={dispositivoAsignar}
+                        onChange={(e) => setDispositivoAsignar(e.target.value)}
+                        className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-200"
+                      >
+                        <option value="">Seleccionar dispositivo</option>
+                        {dispositivosDisponibles.map((dispositivo) => (
+                          <option key={dispositivo.id} value={dispositivo.id}>
+                            {dispositivo.nombreSistema} - {dispositivo.usuarioActual}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="block">
+                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Notas</span>
+                      <textarea
+                        value={notasAsignacion}
+                        onChange={(e) => setNotasAsignacion(e.target.value)}
+                        rows={3}
+                        className="w-full resize-none rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-200"
+                        placeholder="Motivo, folio, comentario..."
+                      />
+                    </label>
+
+                    <button
+                      disabled={
+                        asignando ||
+                        !dispositivoAsignar ||
+                        Number(licenciaSeleccionada.cantidadUsada || 0) >= Number(licenciaSeleccionada.cantidadTotal || 0)
+                      }
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,_#0f172a,_#1e293b,_#334155)] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <FiPlus />
+                      {asignando ? "Asignando..." : "Asignar licencia"}
+                    </button>
+                  </div>
+                </form>
+
+                <div className="overflow-hidden rounded-3xl border border-slate-200">
+                  <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+                    <p className="text-sm font-semibold text-slate-900">Asignaciones activas</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {licenciaSeleccionada.cantidadDisponible} disponibles de {licenciaSeleccionada.cantidadTotal} contratadas.
+                    </p>
+                  </div>
+
+                  <div className="max-h-[420px] divide-y divide-slate-100 overflow-y-auto">
+                    {(licenciaSeleccionada.asignaciones || []).length === 0 ? (
+                      <p className="px-4 py-10 text-center text-sm text-slate-500">
+                        Esta licencia aun no tiene dispositivos asignados.
+                      </p>
+                    ) : (
+                      licenciaSeleccionada.asignaciones.map((asignacion) => {
+                        const dispositivo = asignacion.dispositivo;
+
+                        return (
+                          <div key={asignacion.id} className="flex flex-col gap-4 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-700">
+                                  <FiCpu size={17} />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="truncate font-semibold text-slate-900">
+                                    {dispositivo?.nombreSistema || "Dispositivo no disponible"}
+                                  </p>
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    {dispositivo?.marca || "Sin marca"} · {dispositivo?.tipoEquipo || "Sin tipo"}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-600">
+                                <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1">
+                                  <FiUser size={13} />
+                                  {dispositivo?.usuarioActual || "Sin usuario"}
+                                </span>
+                                <span className="rounded-full border border-slate-200 bg-white px-3 py-1">
+                                  {dispositivo?.area || "Sin area"}
+                                </span>
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => liberarAsignacion(asignacion)}
+                              disabled={liberandoId === asignacion.id}
+                              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <FiTrash2 size={15} />
+                              {liberandoId === asignacion.id ? "Liberando..." : "Liberar"}
+                            </button>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
         </div>
       </div>
