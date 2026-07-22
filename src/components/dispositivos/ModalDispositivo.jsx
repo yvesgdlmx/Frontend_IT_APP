@@ -8,6 +8,7 @@ const crearFormularioInicial = () => ({
   usuarioActual: "",
   tipoAsignacion: "padre",
   cuentaRelacionadaId: "",
+  licenciaIds: [],
 });
 
 const mapearDispositivoAFormulario = (dispositivo) => ({
@@ -18,6 +19,9 @@ const mapearDispositivoAFormulario = (dispositivo) => ({
   usuarioActual: dispositivo?.usuarioActual || "",
   tipoAsignacion: dispositivo?.cuentaHijaId ? "hija" : "padre",
   cuentaRelacionadaId: dispositivo?.cuentaHijaId || dispositivo?.cuentaPadreId || "",
+  licenciaIds: (dispositivo?.licenciasAsignadas || [])
+    .map((asignacion) => asignacion.licencia?.id)
+    .filter(Boolean),
 });
 
 const ModalDispositivo = ({
@@ -29,6 +33,7 @@ const ModalDispositivo = ({
   dispositivoInicial = null,
   cuentasPadre = [],
   cuentasHija = [],
+  licencias = [],
 }) => {
   const inicial = modo === "editar" && dispositivoInicial
     ? mapearDispositivoAFormulario(dispositivoInicial)
@@ -36,6 +41,7 @@ const ModalDispositivo = ({
 
   const [formulario, setFormulario] = useState(inicial);
   const [error, setError] = useState("");
+  const [mostrarOffice, setMostrarOffice] = useState(Boolean(inicial.cuentaRelacionadaId));
 
   const opcionesRelacionadas = useMemo(
     () => (formulario.tipoAsignacion === "hija" ? cuentasHija : cuentasPadre),
@@ -54,6 +60,20 @@ const ModalDispositivo = ({
       [name]: value,
       ...(name === "tipoAsignacion" ? { cuentaRelacionadaId: "" } : {}),
     }));
+  };
+
+  const toggleLicencia = (licenciaId) => {
+    setFormulario((prev) => {
+      const seleccionadas = new Set(prev.licenciaIds || []);
+
+      if (seleccionadas.has(licenciaId)) {
+        seleccionadas.delete(licenciaId);
+      } else {
+        seleccionadas.add(licenciaId);
+      }
+
+      return { ...prev, licenciaIds: [...seleccionadas] };
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -80,6 +100,7 @@ const ModalDispositivo = ({
         formulario.tipoAsignacion === "hija" && formulario.cuentaRelacionadaId
           ? formulario.cuentaRelacionadaId
           : null,
+      licenciaIds: formulario.licenciaIds || [],
     };
 
     const ok = await onGuardar(payload);
@@ -191,44 +212,112 @@ const ModalDispositivo = ({
             <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-5">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">
-                  Paquete office
+                  Licencias
                 </p>
                 <h3 className="mt-2 text-lg font-semibold text-slate-900">
-                  Cuenta relacionada
+                  Agregar licencia
                 </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Selecciona las licencias normales que usa este dispositivo.
+                </p>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">Tipo de cuenta</span>
-                  <select
-                    name="tipoAsignacion"
-                    value={formulario.tipoAsignacion}
-                    onChange={handleChange}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
-                  >
-                    <option value="padre">Cuenta padre</option>
-                    <option value="hija">Cuenta hija</option>
-                  </select>
-                </label>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {licencias.length === 0 ? (
+                  <p className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500 md:col-span-2 xl:col-span-3">
+                    No hay licencias registradas para asignar.
+                  </p>
+                ) : (
+                  licencias.map((licencia) => {
+                    const seleccionada = formulario.licenciaIds?.includes(licencia.id);
+                    const sinCupo = !seleccionada && Number(licencia.cantidadUsada || 0) >= Number(licencia.cantidadTotal || 0);
 
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">Cuenta</span>
-                  <select
-                    name="cuentaRelacionadaId"
-                    value={formulario.cuentaRelacionadaId}
-                    onChange={handleChange}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
-                  >
-                    <option value="">Sin asignar</option>
-                    {opcionesRelacionadas.map((cuenta) => (
-                      <option key={cuenta.id} value={cuenta.id}>
-                        {cuenta.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    return (
+                      <label
+                        key={licencia.id}
+                        className={`block rounded-2xl border p-4 transition ${
+                          seleccionada
+                            ? "border-emerald-300 bg-emerald-50"
+                            : "border-slate-200 bg-slate-50 hover:bg-white"
+                        } ${sinCupo ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={seleccionada}
+                            disabled={sinCupo}
+                            onChange={() => toggleLicencia(licencia.id)}
+                            className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                          />
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-slate-900">{licencia.nombre}</p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {licencia.proveedor} · {licencia.cantidadUsada || 0}/{licencia.cantidadTotal || 0} usadas
+                            </p>
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })
+                )}
               </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <button
+                type="button"
+                onClick={() => setMostrarOffice((prev) => !prev)}
+                className="flex w-full items-center justify-between gap-4 text-left"
+              >
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    Office 365 opcional
+                  </p>
+                  <h3 className="mt-2 text-lg font-semibold text-slate-900">
+                    {mostrarOffice ? "Ocultar cuenta Office" : "Asignar cuenta Office"}
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Usa esto solo si el equipo debe quedar relacionado con una cuenta 365.
+                  </p>
+                </div>
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700">
+                  {mostrarOffice ? "Ocultar" : "Mostrar"}
+                </span>
+              </button>
+
+              {mostrarOffice ? (
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-slate-700">Tipo de cuenta</span>
+                    <select
+                      name="tipoAsignacion"
+                      value={formulario.tipoAsignacion}
+                      onChange={handleChange}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                    >
+                      <option value="padre">Cuenta padre</option>
+                      <option value="hija">Cuenta hija</option>
+                    </select>
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-slate-700">Cuenta</span>
+                    <select
+                      name="cuentaRelacionadaId"
+                      value={formulario.cuentaRelacionadaId}
+                      onChange={handleChange}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                    >
+                      <option value="">Sin asignar</option>
+                      {opcionesRelacionadas.map((cuenta) => (
+                        <option key={cuenta.id} value={cuenta.id}>
+                          {cuenta.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              ) : null}
             </div>
 
             {error ? (

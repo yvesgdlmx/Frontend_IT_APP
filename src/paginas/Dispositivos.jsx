@@ -3,6 +3,7 @@ import {
   FiCpu,
   FiEdit2,
   FiEye,
+  FiKey,
   FiMonitor,
   FiPlus,
   FiTrash2,
@@ -26,11 +27,13 @@ const transformarDispositivo = (dispositivo) => ({
   cuentaHijaCorreo: dispositivo.cuentaHija?.correo || "",
   asignacionTipo: dispositivo.cuentaHijaId ? "Hija" : "Padre",
   asignacionNombre: dispositivo.cuentaHija?.correo || dispositivo.cuentaPadre?.correo || "Sin asignar",
+  licenciasAsignadas: Array.isArray(dispositivo.licenciasAsignadas) ? dispositivo.licenciasAsignadas : [],
 });
 
 const Dispositivos = () => {
   const [dispositivos, setDispositivos] = useState([]);
   const [cuentas, setCuentas] = useState([]);
+  const [licencias, setLicencias] = useState([]);
   const [busqueda, setBusqueda] = useState("");
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -39,15 +42,17 @@ const Dispositivos = () => {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [modoModal, setModoModal] = useState("crear");
   const [dispositivoEnEdicion, setDispositivoEnEdicion] = useState(null);
+  const [dispositivoDetalle, setDispositivoDetalle] = useState(null);
   const [confirmacionAbierta, setConfirmacionAbierta] = useState(false);
   const [dispositivoPendienteEliminar, setDispositivoPendienteEliminar] = useState(null);
 
   const cargarDatos = async () => {
     setCargando(true);
     try {
-      const [respuestaDispositivos, respuestaCuentas] = await Promise.all([
+      const [respuestaDispositivos, respuestaCuentas, respuestaLicencias] = await Promise.all([
         clienteAxios.get("/dispositivos"),
         clienteAxios.get("/cuentas/padre"),
+        clienteAxios.get("/licencias"),
       ]);
 
       setDispositivos(
@@ -57,6 +62,7 @@ const Dispositivos = () => {
       );
 
       setCuentas(Array.isArray(respuestaCuentas.data) ? respuestaCuentas.data : []);
+      setLicencias(Array.isArray(respuestaLicencias.data) ? respuestaLicencias.data : []);
     } catch (error) {
       setMensaje({
         tipo: "error",
@@ -102,6 +108,7 @@ const Dispositivos = () => {
       dispositivo.area,
       dispositivo.usuarioActual,
       dispositivo.asignacionNombre,
+      ...(dispositivo.licenciasAsignadas || []).map((asignacion) => asignacion.licencia?.nombre),
     ]
       .filter(Boolean)
       .some((valor) => valor.toLowerCase().includes(termino));
@@ -259,6 +266,7 @@ const Dispositivos = () => {
                         <th className="px-4 py-4 text-left">Marca</th>
                         <th className="px-4 py-4 text-left">Área</th>
                         <th className="px-4 py-4 text-left">Usuario</th>
+                        <th className="px-4 py-4 text-left">Licencias</th>
                         <th className="px-4 py-4 text-left">Paquete office</th>
                         <th className="px-4 py-4 text-right">Acciones</th>
                       </tr>
@@ -267,13 +275,13 @@ const Dispositivos = () => {
                     <tbody className="divide-y divide-slate-100 bg-white">
                       {cargando ? (
                         <tr>
-                          <td colSpan="6" className="px-6 py-12 text-center text-sm text-slate-500">
+                          <td colSpan="7" className="px-6 py-12 text-center text-sm text-slate-500">
                             Cargando dispositivos...
                           </td>
                         </tr>
                       ) : dispositivosFiltrados.length === 0 ? (
                         <tr>
-                          <td colSpan="6" className="px-6 py-12 text-center text-sm text-slate-500">
+                          <td colSpan="7" className="px-6 py-12 text-center text-sm text-slate-500">
                             No encontramos dispositivos con ese criterio.
                           </td>
                         </tr>
@@ -311,6 +319,22 @@ const Dispositivos = () => {
                             </td>
 
                             <td className="px-4 py-4">
+                              {(() => {
+                                const totalLicencias = (dispositivo.licenciasAsignadas || []).length;
+
+                                if (totalLicencias === 0) {
+                                  return <span className="text-sm text-slate-400">Sin licencias</span>;
+                                }
+
+                                return (
+                                  <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                                    {totalLicencias} {totalLicencias === 1 ? "licencia" : "licencias"}
+                                  </span>
+                                );
+                              })()}
+                            </td>
+
+                            <td className="px-4 py-4">
                               <div>
                                 <span className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
                                   {dispositivo.asignacionTipo}
@@ -322,12 +346,7 @@ const Dispositivos = () => {
                             <td className="px-4 py-4">
                               <div className="flex flex-wrap justify-end gap-2">
                                 <button
-                                  onClick={() =>
-                                    setMensaje({
-                                      tipo: "info",
-                                      texto: `${dispositivo.nombreSistema} está asignado a ${dispositivo.asignacionNombre}.`,
-                                    })
-                                  }
+                                  onClick={() => setDispositivoDetalle(dispositivo)}
                                   className="flex h-9 w-9 items-center justify-center rounded-xl border border-sky-200 bg-sky-50 text-sky-700 transition hover:bg-sky-100"
                                   title="Ver detalle"
                                   aria-label={`Ver detalle de ${dispositivo.nombreSistema}`}
@@ -364,6 +383,81 @@ const Dispositivos = () => {
         </div>
       </div>
 
+      {dispositivoDetalle ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6 sm:px-6">
+          <div className="absolute inset-0 bg-slate-950/55 backdrop-blur-sm" onClick={() => setDispositivoDetalle(null)} />
+
+          <div className="relative w-full max-w-3xl overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.24)]">
+            <button
+              type="button"
+              onClick={() => setDispositivoDetalle(null)}
+              className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-xl text-slate-500 transition hover:bg-slate-50 hover:text-rose-500"
+              aria-label="Cerrar detalle"
+            >
+              ×
+            </button>
+
+            <div className="border-b border-slate-200 bg-[linear-gradient(135deg,_#f8fafc,_#ffffff)] px-6 py-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Detalle del dispositivo</p>
+              <h2 className="mt-2 pr-12 text-2xl font-semibold text-slate-900">
+                {dispositivoDetalle.nombreSistema}
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                {dispositivoDetalle.tipoEquipo} · {dispositivoDetalle.marca}
+              </p>
+            </div>
+
+            <div className="max-h-[72vh] overflow-y-auto bg-slate-50 p-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Usuario</p>
+                  <p className="mt-2 font-semibold text-slate-900">{dispositivoDetalle.usuarioActual}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Area</p>
+                  <p className="mt-2 font-semibold text-slate-900">{dispositivoDetalle.area || "Sin area"}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 md:col-span-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Paquete Office</p>
+                  <p className="mt-2 font-semibold text-slate-900">{dispositivoDetalle.asignacionNombre}</p>
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Licencias vinculadas</p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {(dispositivoDetalle.licenciasAsignadas || []).length} asignadas a este dispositivo.
+                    </p>
+                  </div>
+                  <FiKey className="text-slate-400" size={20} />
+                </div>
+
+                <div className="mt-4 max-h-[280px] divide-y divide-slate-100 overflow-y-auto rounded-2xl border border-slate-100">
+                  {(dispositivoDetalle.licenciasAsignadas || []).length === 0 ? (
+                    <p className="px-4 py-8 text-center text-sm text-slate-500">
+                      Este dispositivo no tiene licencias asignadas.
+                    </p>
+                  ) : (
+                    dispositivoDetalle.licenciasAsignadas.map((asignacion) => (
+                      <div key={asignacion.id} className="px-4 py-3">
+                        <p className="font-semibold text-slate-900">
+                          {asignacion.licencia?.nombre || "Licencia"}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {asignacion.licencia?.proveedor || "Sin proveedor"} · {asignacion.licencia?.plan || "Sin plan"}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <ModalDispositivo
         key={`${modoModal}-${dispositivoEnEdicion?.id || "nuevo"}-${modalAbierto ? "open" : "closed"}`}
         abierto={modalAbierto}
@@ -374,6 +468,7 @@ const Dispositivos = () => {
         dispositivoInicial={dispositivoEnEdicion}
         cuentasPadre={cuentasPadre}
         cuentasHija={cuentasHija}
+        licencias={licencias}
       />
 
       <ConfirmDialog
