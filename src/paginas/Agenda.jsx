@@ -28,6 +28,7 @@ const estadoInicial = {
   tipo: "tarea",
   prioridad: "media",
   estado: "pendiente",
+  fechaRealizacion: "",
   responsable: "",
   entidadTipo: "ninguna",
   entidadId: "",
@@ -241,6 +242,15 @@ const Agenda = () => {
   const [actividadEliminar, setActividadEliminar] = useState(null);
   const [modalDiaAbierto, setModalDiaAbierto] = useState(false);
   const [mensaje, setMensaje] = useState({ tipo: "", texto: "" });
+  const [periodoCierre, setPeriodoCierre] = useState({
+    anio: new Date().getFullYear(),
+    mes: new Date().getMonth() + 1,
+  });
+  const [previewCierre, setPreviewCierre] = useState(null);
+  const [cierresMantenimiento, setCierresMantenimiento] = useState([]);
+  const [comentarioCierre, setComentarioCierre] = useState("");
+  const [cargandoPreview, setCargandoPreview] = useState(false);
+  const [guardandoCierre, setGuardandoCierre] = useState(false);
 
   const cargarAgenda = async () => {
     setCargando(true);
@@ -284,6 +294,19 @@ const Agenda = () => {
   useEffect(() => {
     cargarAgenda();
   }, []);
+
+  const cargarCierresMantenimiento = async (anio = periodoCierre.anio) => {
+    try {
+      const { data } = await clienteAxios.get(`/agenda/mantenimientos/cierres?anio=${anio}`);
+      setCierresMantenimiento(Array.isArray(data) ? data : []);
+    } catch (error) {
+      setCierresMantenimiento([]);
+    }
+  };
+
+  useEffect(() => {
+    cargarCierresMantenimiento(periodoCierre.anio);
+  }, [periodoCierre.anio]);
 
   const eventos = useMemo(() => ordenarEventos([...actividades, ...automaticos]), [actividades, automaticos]);
 
@@ -337,7 +360,21 @@ const Agenda = () => {
   const diasMes = useMemo(() => obtenerDiasMes(mesVisible), [mesVisible]);
 
   const handleChange = (e) => {
-    setFormulario((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+
+    setFormulario((prev) => {
+      const siguiente = { ...prev, [name]: value };
+
+      if (name === "estado" && value === "completada" && !siguiente.fechaRealizacion) {
+        siguiente.fechaRealizacion = hoyISO();
+      }
+
+      if (name === "estado" && value !== "completada") {
+        siguiente.fechaRealizacion = "";
+      }
+
+      return siguiente;
+    });
   };
 
   const limpiarFormulario = () => {
@@ -384,6 +421,7 @@ const Agenda = () => {
       tipo: actividad.tipo || "tarea",
       prioridad: actividad.prioridad || "media",
       estado: actividad.estado || "pendiente",
+      fechaRealizacion: actividad.fechaRealizacion || "",
       responsable: actividad.responsable || "",
       entidadTipo: actividad.entidadTipo || "ninguna",
       entidadId: actividad.entidadId || "",
@@ -397,7 +435,10 @@ const Agenda = () => {
     const estado = actividad.estado === "completada" ? "pendiente" : "completada";
 
     try {
-      const { data } = await clienteAxios.patch(`/agenda/${actividad.id}/estado`, { estado });
+      const { data } = await clienteAxios.patch(`/agenda/${actividad.id}/estado`, {
+        estado,
+        fechaRealizacion: estado === "completada" ? hoyISO() : null,
+      });
       setActividades((prev) => prev.map((item) => (item.id === data.id ? data : item)));
     } catch (error) {
       setMensaje({
@@ -442,6 +483,57 @@ const Agenda = () => {
 
     if (abrirModal) {
       setModalDiaAbierto(true);
+    }
+  };
+
+  const cambiarPeriodoCierre = (campo, valor) => {
+    setPeriodoCierre((prev) => ({
+      ...prev,
+      [campo]: Number(valor),
+    }));
+    setPreviewCierre(null);
+  };
+
+  const generarPreviewCierre = async () => {
+    setCargandoPreview(true);
+
+    try {
+      const { data } = await clienteAxios.get(
+        `/agenda/mantenimientos/cierres/preview?anio=${periodoCierre.anio}&mes=${periodoCierre.mes}`
+      );
+      setPreviewCierre(data);
+      setComentarioCierre("");
+    } catch (error) {
+      setMensaje({
+        tipo: "error",
+        texto: error.response?.data?.error || "No fue posible calcular el cierre de mantenimiento.",
+      });
+    } finally {
+      setCargandoPreview(false);
+    }
+  };
+
+  const guardarCierreMantenimiento = async () => {
+    setGuardandoCierre(true);
+
+    try {
+      const { data } = await clienteAxios.post("/agenda/mantenimientos/cierres", {
+        ...periodoCierre,
+        comentario: comentarioCierre,
+      });
+      setCierresMantenimiento((prev) => {
+        const sinActual = prev.filter((item) => !(item.anio === data.anio && item.mes === data.mes));
+        return [...sinActual, data].sort((a, b) => a.mes - b.mes);
+      });
+      setPreviewCierre(data);
+      setMensaje({ tipo: "success", texto: "Cierre mensual de mantenimiento guardado correctamente." });
+    } catch (error) {
+      setMensaje({
+        tipo: "error",
+        texto: error.response?.data?.error || "No fue posible guardar el cierre de mantenimiento.",
+      });
+    } finally {
+      setGuardandoCierre(false);
     }
   };
 
@@ -619,6 +711,25 @@ const Agenda = () => {
                   </label>
                 </div>
 
+                {formulario.tipo === "mantenimiento" || formulario.estado === "completada" ? (
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                      Fecha de realizacion
+                    </span>
+                    <input
+                      type="date"
+                      name="fechaRealizacion"
+                      value={formulario.fechaRealizacion}
+                      onChange={handleChange}
+                      disabled={formulario.estado !== "completada"}
+                      className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                    />
+                    <p className="mt-2 text-xs text-slate-400">
+                      Se usa para saber si el mantenimiento se realizo en tiempo o despues de lo programado.
+                    </p>
+                  </label>
+                ) : null}
+
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="block">
                     <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
@@ -673,6 +784,119 @@ const Agenda = () => {
             </form>
 
             <div className="space-y-5">
+              <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+                <div className="border-b border-slate-200 bg-[linear-gradient(180deg,_#ffffff,_#f8fafc)] p-5 sm:p-6">
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                    <div>
+                      <p className="text-base font-semibold text-slate-900">KPI mensual de mantenimiento</p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Mantenimientos realizados / mantenimientos programados x 100.
+                      </p>
+                    </div>
+
+                    <div className="grid gap-2 sm:grid-cols-[110px_160px_auto]">
+                      <input
+                        type="number"
+                        min="2000"
+                        max="2100"
+                        value={periodoCierre.anio}
+                        onChange={(e) => cambiarPeriodoCierre("anio", e.target.value)}
+                        className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-200"
+                      />
+                      <select
+                        value={periodoCierre.mes}
+                        onChange={(e) => cambiarPeriodoCierre("mes", e.target.value)}
+                        className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-200"
+                      >
+                        {nombresMes.map((mes, index) => (
+                          <option key={mes} value={index + 1}>
+                            {mes}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={generarPreviewCierre}
+                        disabled={cargandoPreview}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <FiRefreshCw size={16} />
+                        {cargandoPreview ? "Calculando..." : "Calcular"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 p-5 sm:p-6 2xl:grid-cols-[0.58fr_0.42fr]">
+                  <div className="space-y-4">
+                    <div className="grid gap-3 sm:grid-cols-5">
+                      {[
+                        ["Programados", previewCierre?.programados ?? 0],
+                        ["Realizados", previewCierre?.realizados ?? 0],
+                        ["Pendientes", previewCierre?.pendientes ?? 0],
+                        ["Cancelados", previewCierre?.cancelados ?? 0],
+                        ["KPI", `${Number(previewCierre?.porcentajeCumplimiento || 0).toFixed(2)}%`],
+                      ].map(([label, valor]) => (
+                        <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+                          <p className="mt-2 text-xl font-semibold text-slate-900">{valor}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <label className="block">
+                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                        Comentario del cierre
+                      </span>
+                      <textarea
+                        value={comentarioCierre}
+                        onChange={(e) => setComentarioCierre(e.target.value)}
+                        rows={3}
+                        placeholder="Ej. Se completaron los mantenimientos criticos; quedan pendientes equipos fuera de planta."
+                        className="w-full resize-none rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-200"
+                      />
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={guardarCierreMantenimiento}
+                      disabled={!previewCierre || guardandoCierre}
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,_#0f172a,_#1e293b,_#334155)] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <FiCheck size={16} />
+                      {guardandoCierre ? "Guardando..." : "Guardar cierre mensual"}
+                    </button>
+                  </div>
+
+                  <div className="rounded-3xl border border-slate-200 bg-white">
+                    <div className="border-b border-slate-100 px-4 py-3">
+                      <p className="text-sm font-semibold text-slate-900">Historial del anio</p>
+                    </div>
+                    <div className="max-h-72 overflow-auto">
+                      {cierresMantenimiento.length === 0 ? (
+                        <p className="px-4 py-8 text-center text-sm text-slate-500">Sin cierres guardados.</p>
+                      ) : (
+                        cierresMantenimiento.map((cierre) => (
+                          <div key={cierre.id} className="grid grid-cols-[1fr_auto] gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900">
+                                {nombresMes[cierre.mes - 1]} {cierre.anio}
+                              </p>
+                              <p className="mt-1 text-xs text-slate-500">
+                                {cierre.realizados}/{cierre.programados} realizados · {cierre.pendientes} pendientes
+                              </p>
+                            </div>
+                            <p className="text-sm font-semibold text-slate-900">
+                              {Number(cierre.porcentajeCumplimiento || 0).toFixed(2)}%
+                            </p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
               <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
                 <div className="border-b border-slate-200 bg-[linear-gradient(180deg,_#ffffff,_#f8fafc)] p-5 sm:p-6">
                   <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">

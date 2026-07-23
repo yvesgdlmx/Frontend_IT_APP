@@ -17,6 +17,30 @@ const meses = [
   "Diciembre",
 ];
 
+const columnasReporte = [
+  "kpi",
+  "formula",
+  "mes",
+  "base",
+  "cumplidos",
+  "pendientes",
+  "cancelados",
+  "resultado",
+  "comentario",
+];
+
+const nombresColumnas = {
+  kpi: "KPI",
+  formula: "Formula",
+  mes: "Mes",
+  base: "Base",
+  cumplidos: "Cumplidos",
+  pendientes: "Pendientes",
+  cancelados: "Cancelados",
+  resultado: "Resultado",
+  comentario: "Comentario",
+};
+
 const textoPdf = (valor) =>
   String(valor ?? "")
     .normalize("NFD")
@@ -26,7 +50,7 @@ const textoPdf = (valor) =>
     .replace(/\(/g, "\\(")
     .replace(/\)/g, "\\)");
 
-const truncarPdf = (valor, max = 28) => {
+const truncarPdf = (valor, max = 24) => {
   const texto = String(valor ?? "");
   return texto.length > max ? `${texto.slice(0, max - 1)}...` : texto;
 };
@@ -140,7 +164,6 @@ const crearZipSinCompresion = (archivos) => {
     escribirUint32(central, 42, offset);
     central.set(nombreBytes, 46);
     centrales.push(central);
-
     offset += local.length;
   });
 
@@ -158,30 +181,22 @@ const crearZipSinCompresion = (archivos) => {
 };
 
 const crearXlsx = (filas) => {
-  const headers = Object.keys(filas[0] || {});
-  const nombres = {
-    mes: "Mes",
-    contratadas: "Contratadas",
-    utilizadas: "Utilizadas",
-    disponibles: "Disponibles",
-    kpi: "KPI",
-    comentario: "Comentario",
-  };
-
   const crearCelda = (valor, fila, columna) =>
     `<c r="${numeroColumnaExcel(columna)}${fila}" t="inlineStr"><is><t>${escapeXml(valor)}</t></is></c>`;
 
   const filasXml = [
-    `<row r="1">${headers.map((header, index) => crearCelda(nombres[header] || header, 1, index)).join("")}</row>`,
+    `<row r="1">${columnasReporte
+      .map((header, index) => crearCelda(nombresColumnas[header], 1, index))
+      .join("")}</row>`,
     ...filas.map(
       (fila, rowIndex) =>
-        `<row r="${rowIndex + 2}">${headers
+        `<row r="${rowIndex + 2}">${columnasReporte
           .map((header, colIndex) => crearCelda(fila[header], rowIndex + 2, colIndex))
           .join("")}</row>`
     ),
   ].join("");
 
-  const ultimaColumna = numeroColumnaExcel(Math.max(headers.length - 1, 0));
+  const ultimaColumna = numeroColumnaExcel(columnasReporte.length - 1);
   const ultimaFila = Math.max(filas.length + 1, 1);
 
   return crearZipSinCompresion([
@@ -206,9 +221,7 @@ const crearXlsx = (filas) => {
       nombre: "xl/workbook.xml",
       contenido: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-  <sheets>
-    <sheet name="Cierres" sheetId="1" r:id="rId1"/>
-  </sheets>
+  <sheets><sheet name="KPIs" sheetId="1" r:id="rId1"/></sheets>
 </workbook>`,
     },
     {
@@ -224,9 +237,9 @@ const crearXlsx = (filas) => {
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
   <dimension ref="A1:${ultimaColumna}${ultimaFila}"/>
   <cols>
-    <col min="1" max="1" width="20" customWidth="1"/>
-    <col min="2" max="5" width="15" customWidth="1"/>
-    <col min="6" max="6" width="42" customWidth="1"/>
+    <col min="1" max="2" width="36" customWidth="1"/>
+    <col min="3" max="8" width="16" customWidth="1"/>
+    <col min="9" max="9" width="44" customWidth="1"/>
   </cols>
   <sheetData>${filasXml}</sheetData>
 </worksheet>`,
@@ -238,9 +251,8 @@ const crearPdf = (titulo, filas) => {
   const ancho = 842;
   const alto = 595;
   const margen = 42;
-  const columnas = ["mes", "contratadas", "utilizadas", "disponibles", "kpi", "comentario"];
-  const anchos = [110, 95, 95, 95, 70, 292];
-  const filasPorPagina = 16;
+  const anchos = [132, 120, 92, 62, 70, 70, 70, 70, 72];
+  const filasPorPagina = 15;
   const paginas = [];
 
   for (let i = 0; i < filas.length; i += filasPorPagina) {
@@ -263,31 +275,30 @@ const crearPdf = (titulo, filas) => {
     paginasIds.push(pageId);
 
     const comandos = [];
-
     comandos.push("0.96 0.98 1 rg 0 0 842 595 re f");
     comandos.push("0.06 0.09 0.16 rg 0 520 842 75 re f");
     comandos.push("0.22 0.74 0.97 rg 42 548 34 26 re f");
     comandos.push("1 1 1 rg");
     comandos.push("BT /F2 13 Tf 51 556 Td (TI) Tj ET");
     comandos.push(`BT /F2 18 Tf 92 558 Td (${textoPdf(titulo)}) Tj ET`);
-    comandos.push("BT /F1 9 Tf 92 540 Td (TI CONTROL | Reportes) Tj ET");
+    comandos.push("BT /F1 9 Tf 92 540 Td (TI CONTROL | Reportes KPI) Tj ET");
     comandos.push(`BT /F1 9 Tf 650 558 Td (Generado: ${textoPdf(new Date().toLocaleDateString("es-MX"))}) Tj ET`);
     comandos.push(`BT /F1 9 Tf 650 540 Td (Pagina ${pageIndex + 1} de ${Math.max(paginas.length, 1)}) Tj ET`);
 
     comandos.push("1 1 1 rg 42 462 758 38 re f");
     comandos.push("0.88 0.91 0.95 RG 42 462 758 38 re S");
     comandos.push("0.10 0.13 0.20 rg");
-    comandos.push(`BT /F2 11 Tf 58 484 Td (${filas.length} cierres mensuales exportados) Tj ET`);
+    comandos.push(`BT /F2 11 Tf 58 484 Td (${filas.length} registros KPI exportados) Tj ET`);
     comandos.push("0.39 0.45 0.55 rg");
-    comandos.push("BT /F1 9 Tf 58 469 Td (KPI: licencias utilizadas / licencias contratadas x 100.) Tj ET");
+    comandos.push("BT /F1 9 Tf 58 469 Td (Reporte agrupado de cierres mensuales guardados.) Tj ET");
 
     const tablaY = 420;
     comandos.push("0.09 0.12 0.18 rg 42 420 758 28 re f");
     comandos.push("1 1 1 rg");
 
     let xActual = margen;
-    columnas.forEach((columna, index) => {
-      comandos.push(`BT /F2 8 Tf ${(xActual + 8).toFixed(2)} 430 Td (${textoPdf(columna.toUpperCase())}) Tj ET`);
+    columnasReporte.forEach((columna, index) => {
+      comandos.push(`BT /F2 7 Tf ${(xActual + 5).toFixed(2)} 430 Td (${textoPdf(nombresColumnas[columna]).toUpperCase()}) Tj ET`);
       xActual += anchos[index];
     });
 
@@ -300,9 +311,13 @@ const crearPdf = (titulo, filas) => {
       comandos.push("0.10 0.13 0.20 rg");
 
       let x = margen;
-      columnas.forEach((columna, index) => {
-        const texto = textoPdf(truncarPdf(fila[columna], columna === "comentario" ? 42 : 18));
-        comandos.push(`BT /F1 8 Tf ${(x + 8).toFixed(2)} ${(y + 8).toFixed(2)} Td (${texto}) Tj ET`);
+      columnasReporte.forEach((columna, index) => {
+        const max = columna === "comentario" || columna === "formula" ? 18 : 13;
+        comandos.push(
+          `BT /F1 7 Tf ${(x + 5).toFixed(2)} ${(y + 8).toFixed(2)} Td (${textoPdf(
+            truncarPdf(fila[columna], max)
+          )}) Tj ET`
+        );
         x += anchos[index];
       });
     });
@@ -311,7 +326,6 @@ const crearPdf = (titulo, filas) => {
     comandos.push("BT /F1 8 Tf 42 28 Td (Documento generado automaticamente. Revise la informacion antes de compartirla.) Tj ET");
 
     const contenido = comandos.join("\n");
-
     objetos[pageId] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${ancho} ${alto}] /Resources << /Font << /F1 ${fontRegularId} 0 R /F2 ${fontBoldId} 0 R >> >> /Contents ${contentId} 0 R >>`;
     objetos[contentId] = `<< /Length ${contenido.length} >>\nstream\n${contenido}\nendstream`;
   });
@@ -320,7 +334,6 @@ const crearPdf = (titulo, filas) => {
 
   let pdf = "%PDF-1.4\n";
   const offsets = [0];
-
   objetos.forEach((objeto, index) => {
     if (!objeto) return;
     offsets[index] = pdf.length;
@@ -329,11 +342,9 @@ const crearPdf = (titulo, filas) => {
 
   const xrefOffset = pdf.length;
   pdf += `xref\n0 ${objetos.length}\n0000000000 65535 f \n`;
-
   for (let i = 1; i < objetos.length; i += 1) {
     pdf += `${String(offsets[i] || 0).padStart(10, "0")} 00000 n \n`;
   }
-
   pdf += `trailer\n<< /Size ${objetos.length} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
 
   return pdf;
@@ -367,72 +378,123 @@ const descargarPdf = (nombre, titulo, filas) => {
   URL.revokeObjectURL(url);
 };
 
+const promedio = (filas) =>
+  filas.length ? filas.reduce((acc, fila) => acc + Number(fila.valor || 0), 0) / filas.length : 0;
+
 const Reportes = () => {
-  const [cierres, setCierres] = useState([]);
   const [anio, setAnio] = useState(new Date().getFullYear());
+  const [licencias, setLicencias] = useState([]);
+  const [mantenimientos, setMantenimientos] = useState([]);
   const [cargando, setCargando] = useState(true);
 
-  const cargarCierres = async () => {
+  const cargarReportes = async () => {
     setCargando(true);
 
     try {
-      const { data } = await clienteAxios.get(`/licencias/cierres?anio=${anio}`);
-      setCierres(Array.isArray(data) ? data : []);
-    } catch (error) {
-      setCierres([]);
+      const [licenciasRes, mantenimientosRes] = await Promise.allSettled([
+        clienteAxios.get(`/licencias/cierres?anio=${anio}`),
+        clienteAxios.get(`/agenda/mantenimientos/cierres?anio=${anio}`),
+      ]);
+
+      setLicencias(
+        licenciasRes.status === "fulfilled" && Array.isArray(licenciasRes.value.data)
+          ? licenciasRes.value.data
+          : []
+      );
+      setMantenimientos(
+        mantenimientosRes.status === "fulfilled" && Array.isArray(mantenimientosRes.value.data)
+          ? mantenimientosRes.value.data
+          : []
+      );
     } finally {
       setCargando(false);
     }
   };
 
   useEffect(() => {
-    cargarCierres();
+    cargarReportes();
   }, [anio]);
 
-  const filas = useMemo(
+  const filasLicencias = useMemo(
     () =>
-      cierres.map((cierre) => ({
+      licencias.map((cierre) => ({
+        kpi: "Optimizacion de licencias de software",
+        formula: "Licencias utilizadas / licencias contratadas x 100",
         mes: `${meses[cierre.mes - 1]} ${cierre.anio}`,
-        contratadas: cierre.totalContratadas,
-        utilizadas: cierre.totalUtilizadas,
-        disponibles: cierre.totalDisponibles,
-        kpi: `${Number(cierre.porcentajeUso || 0).toFixed(2)}%`,
+        base: cierre.totalContratadas,
+        cumplidos: cierre.totalUtilizadas,
+        pendientes: cierre.totalDisponibles,
+        cancelados: "",
+        resultado: `${Number(cierre.porcentajeUso || 0).toFixed(2)}%`,
+        valor: Number(cierre.porcentajeUso || 0),
         comentario: cierre.comentario || "",
       })),
-    [cierres]
+    [licencias]
   );
 
-  const resumen = useMemo(() => {
-    const ultimo = [...cierres].sort((a, b) => b.mes - a.mes)[0];
-    const promedio = cierres.length
-      ? cierres.reduce((acc, cierre) => acc + Number(cierre.porcentajeUso || 0), 0) / cierres.length
-      : 0;
+  const filasMantenimientos = useMemo(
+    () =>
+      mantenimientos.map((cierre) => ({
+        kpi: "Cumplimiento del programa de mantenimiento tecnologico",
+        formula: "Mantenimientos realizados / mantenimientos programados x 100",
+        mes: `${meses[cierre.mes - 1]} ${cierre.anio}`,
+        base: cierre.programados,
+        cumplidos: cierre.realizados,
+        pendientes: cierre.pendientes,
+        cancelados: cierre.cancelados,
+        resultado: `${Number(cierre.porcentajeCumplimiento || 0).toFixed(2)}%`,
+        valor: Number(cierre.porcentajeCumplimiento || 0),
+        comentario: cierre.comentario || "",
+      })),
+    [mantenimientos]
+  );
 
-    return {
-      cierres: cierres.length,
-      promedio,
-      ultimo,
-    };
-  }, [cierres]);
+  const grupos = useMemo(
+    () => [
+      {
+        id: "licencias",
+        titulo: "Licencias de software",
+        descripcion: "Licencias utilizadas contra licencias contratadas.",
+        filas: filasLicencias,
+      },
+      {
+        id: "mantenimientos",
+        titulo: "Mantenimiento tecnologico",
+        descripcion: "Mantenimientos realizados contra mantenimientos programados.",
+        filas: filasMantenimientos,
+      },
+    ],
+    [filasLicencias, filasMantenimientos]
+  );
+
+  const filasGenerales = useMemo(() => grupos.flatMap((grupo) => grupo.filas), [grupos]);
+  const resumenGeneral = useMemo(
+    () => ({
+      kpis: grupos.length,
+      registros: filasGenerales.length,
+      promedio: promedio(filasGenerales),
+    }),
+    [filasGenerales, grupos.length]
+  );
 
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,_#f4f8ff_0%,_#f8fafc_32%,_#ffffff_100%)] px-4 py-4 sm:px-6 sm:py-6 2xl:px-8">
       <div className="mx-auto w-full max-w-[1500px] space-y-5">
         <section className="rounded-[28px] border border-slate-200 bg-white px-5 py-5 shadow-sm sm:px-6">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-            <div className="max-w-2xl">
+            <div className="max-w-3xl">
               <div className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">
-                KPI licencias
+                Reportes KPI
               </div>
               <h1 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900 sm:text-[2rem]">
-                Reportes
+                Cierres mensuales
               </h1>
               <p className="mt-2 text-sm text-slate-500">
-                Exporta el historial mensual de licencias utilizadas contra licencias contratadas.
+                Consulta los KPIs guardados por mes y descarga el reporte general para tu asesor.
               </p>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-[120px_auto]">
+            <div className="grid gap-3 sm:grid-cols-[120px_auto_auto_auto]">
               <input
                 type="number"
                 min="2000"
@@ -442,11 +504,27 @@ const Reportes = () => {
                 className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-200"
               />
               <button
-                onClick={cargarCierres}
+                onClick={cargarReportes}
                 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               >
                 <FiRefreshCw size={16} />
                 {cargando ? "Actualizando..." : "Actualizar"}
+              </button>
+              <button
+                disabled={filasGenerales.length === 0}
+                onClick={() => descargarExcel(`reporte-kpis-${anio}`, filasGenerales)}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <FiDownload size={16} />
+                Excel general
+              </button>
+              <button
+                disabled={filasGenerales.length === 0}
+                onClick={() => descargarPdf(`reporte-kpis-${anio}`, `Reporte general de KPIs ${anio}`, filasGenerales)}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,_#0f172a,_#1e293b,_#334155)] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <FiDownload size={16} />
+                PDF general
               </button>
             </div>
           </div>
@@ -454,104 +532,106 @@ const Reportes = () => {
 
         <section className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">KPIs activos</p>
+            <p className="mt-3 text-3xl font-semibold text-slate-900">{resumenGeneral.kpis}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Cierres</p>
-            <p className="mt-3 text-3xl font-semibold text-slate-900">{resumen.cierres}</p>
+            <p className="mt-3 text-3xl font-semibold text-slate-900">{resumenGeneral.registros}</p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Promedio KPI</p>
-            <p className="mt-3 text-3xl font-semibold text-slate-900">{resumen.promedio.toFixed(2)}%</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Ultimo cierre</p>
-            <p className="mt-3 text-3xl font-semibold text-slate-900">
-              {resumen.ultimo ? `${Number(resumen.ultimo.porcentajeUso || 0).toFixed(2)}%` : "-"}
-            </p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Promedio general</p>
+            <p className="mt-3 text-3xl font-semibold text-slate-900">{resumenGeneral.promedio.toFixed(2)}%</p>
           </div>
         </section>
 
-        <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 bg-[linear-gradient(180deg,_#ffffff,_#f8fafc)] p-5 sm:p-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-base font-semibold text-slate-900">Cierres mensuales de licencias</p>
-                <p className="mt-1 text-sm text-slate-500">
-                  KPI: licencias utilizadas / licencias contratadas x 100.
-                </p>
+        <section className="grid gap-5">
+          {grupos.map((grupo) => (
+            <article key={grupo.id} className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-200 bg-[linear-gradient(180deg,_#ffffff,_#f8fafc)] p-5 sm:p-6">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-base font-semibold text-slate-900">{grupo.titulo}</p>
+                    <p className="mt-1 text-sm text-slate-500">{grupo.descripcion}</p>
+                  </div>
+
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <button
+                      disabled={grupo.filas.length === 0}
+                      onClick={() => descargarExcel(`reporte-${grupo.id}-${anio}`, grupo.filas)}
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <FiDownload size={16} />
+                      Excel
+                    </button>
+                    <button
+                      disabled={grupo.filas.length === 0}
+                      onClick={() => descargarPdf(`reporte-${grupo.id}-${anio}`, `${grupo.titulo} ${anio}`, grupo.filas)}
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,_#0f172a,_#1e293b,_#334155)] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <FiDownload size={16} />
+                      PDF
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <button
-                  disabled={filas.length === 0}
-                  onClick={() => descargarExcel(`cierres-licencias-${anio}`, filas)}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <FiDownload size={16} />
-                  Excel
-                </button>
-                <button
-                  disabled={filas.length === 0}
-                  onClick={() => descargarPdf(`cierres-licencias-${anio}`, `Cierres de licencias ${anio}`, filas)}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,_#0f172a,_#1e293b,_#334155)] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <FiDownload size={16} />
-                  PDF
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-5 sm:p-6">
-            <div className="overflow-hidden rounded-3xl border border-slate-200">
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase tracking-[0.18em] text-slate-500">
-                    <tr>
-                      <th className="px-4 py-4 text-left">Mes</th>
-                      <th className="px-4 py-4 text-left">Contratadas</th>
-                      <th className="px-4 py-4 text-left">Utilizadas</th>
-                      <th className="px-4 py-4 text-left">Disponibles</th>
-                      <th className="px-4 py-4 text-left">KPI</th>
-                      <th className="px-4 py-4 text-left">Comentario</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
-                    {cargando ? (
-                      <tr>
-                        <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
-                          Cargando cierres...
-                        </td>
-                      </tr>
-                    ) : filas.length === 0 ? (
-                      <tr>
-                        <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
-                          No hay cierres mensuales guardados para este anio.
-                        </td>
-                      </tr>
-                    ) : (
-                      filas.map((fila) => (
-                        <tr key={fila.mes} className="transition hover:bg-slate-50/80">
-                          <td className="px-4 py-4 font-semibold text-slate-900">{fila.mes}</td>
-                          <td className="px-4 py-4 text-slate-700">{fila.contratadas}</td>
-                          <td className="px-4 py-4 text-slate-700">{fila.utilizadas}</td>
-                          <td className="px-4 py-4 text-slate-700">{fila.disponibles}</td>
-                          <td className="px-4 py-4 font-semibold text-slate-900">{fila.kpi}</td>
-                          <td className="px-4 py-4 text-slate-600">{fila.comentario || "-"}</td>
+              <div className="p-5 sm:p-6">
+                <div className="overflow-hidden rounded-3xl border border-slate-200">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-slate-50 text-xs uppercase tracking-[0.16em] text-slate-500">
+                        <tr>
+                          <th className="px-4 py-4 text-left">Mes</th>
+                          <th className="px-4 py-4 text-left">Base</th>
+                          <th className="px-4 py-4 text-left">Cumplidos</th>
+                          <th className="px-4 py-4 text-left">Pendientes</th>
+                          <th className="px-4 py-4 text-left">Cancelados</th>
+                          <th className="px-4 py-4 text-left">Resultado</th>
+                          <th className="px-4 py-4 text-left">Comentario</th>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white">
+                        {cargando ? (
+                          <tr>
+                            <td colSpan="7" className="px-6 py-12 text-center text-slate-500">
+                              Cargando cierres...
+                            </td>
+                          </tr>
+                        ) : grupo.filas.length === 0 ? (
+                          <tr>
+                            <td colSpan="7" className="px-6 py-12 text-center text-slate-500">
+                              No hay cierres guardados para este KPI en este anio.
+                            </td>
+                          </tr>
+                        ) : (
+                          grupo.filas.map((fila) => (
+                            <tr key={`${grupo.id}-${fila.mes}`} className="transition hover:bg-slate-50/80">
+                              <td className="px-4 py-4 font-semibold text-slate-900">{fila.mes}</td>
+                              <td className="px-4 py-4 text-slate-700">{fila.base}</td>
+                              <td className="px-4 py-4 text-slate-700">{fila.cumplidos}</td>
+                              <td className="px-4 py-4 text-slate-700">{fila.pendientes}</td>
+                              <td className="px-4 py-4 text-slate-700">{fila.cancelados || "-"}</td>
+                              <td className="px-4 py-4 font-semibold text-slate-900">{fila.resultado}</td>
+                              <td className="px-4 py-4 text-slate-600">{fila.comentario || "-"}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
-            </div>
-
-            <div className="mt-4 flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-              <FiFileText className="mt-0.5 shrink-0 text-slate-400" size={18} />
-              <p>
-                Primero genera y guarda cierres desde Licencias. Esta pantalla solo exporta los cierres ya guardados.
-              </p>
-            </div>
-          </div>
+            </article>
+          ))}
         </section>
+
+        <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+          <FiFileText className="mt-0.5 shrink-0 text-slate-400" size={18} />
+          <p>
+            Los reportes se alimentan de cierres mensuales guardados. Para agregar nuevos KPIs, solo necesitamos crear su cierre mensual y mapearlo aqui.
+          </p>
+        </div>
       </div>
     </div>
   );
