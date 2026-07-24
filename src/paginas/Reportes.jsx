@@ -378,22 +378,25 @@ const descargarPdf = (nombre, titulo, filas) => {
   URL.revokeObjectURL(url);
 };
 
-const promedio = (filas) =>
-  filas.length ? filas.reduce((acc, fila) => acc + Number(fila.valor || 0), 0) / filas.length : 0;
-
 const Reportes = () => {
   const [anio, setAnio] = useState(new Date().getFullYear());
   const [licencias, setLicencias] = useState([]);
   const [mantenimientos, setMantenimientos] = useState([]);
+  const [incidencias, setIncidencias] = useState([]);
+  const [seguridadEquipos, setSeguridadEquipos] = useState([]);
+  const [inventarioEquipos, setInventarioEquipos] = useState([]);
   const [cargando, setCargando] = useState(true);
 
   const cargarReportes = async () => {
     setCargando(true);
 
     try {
-      const [licenciasRes, mantenimientosRes] = await Promise.allSettled([
+      const [licenciasRes, mantenimientosRes, incidenciasRes, seguridadRes, inventarioRes] = await Promise.allSettled([
         clienteAxios.get(`/licencias/cierres?anio=${anio}`),
         clienteAxios.get(`/agenda/mantenimientos/cierres?anio=${anio}`),
+        clienteAxios.get(`/incidencias/cierres?anio=${anio}`),
+        clienteAxios.get(`/seguridad-equipos/cierres?anio=${anio}`),
+        clienteAxios.get(`/inventario-equipos/cierres?anio=${anio}`),
       ]);
 
       setLicencias(
@@ -404,6 +407,21 @@ const Reportes = () => {
       setMantenimientos(
         mantenimientosRes.status === "fulfilled" && Array.isArray(mantenimientosRes.value.data)
           ? mantenimientosRes.value.data
+          : []
+      );
+      setIncidencias(
+        incidenciasRes.status === "fulfilled" && Array.isArray(incidenciasRes.value.data)
+          ? incidenciasRes.value.data
+          : []
+      );
+      setSeguridadEquipos(
+        seguridadRes.status === "fulfilled" && Array.isArray(seguridadRes.value.data)
+          ? seguridadRes.value.data
+          : []
+      );
+      setInventarioEquipos(
+        inventarioRes.status === "fulfilled" && Array.isArray(inventarioRes.value.data)
+          ? inventarioRes.value.data
           : []
       );
     } finally {
@@ -449,6 +467,74 @@ const Reportes = () => {
     [mantenimientos]
   );
 
+  const filasIncidencias = useMemo(
+    () =>
+      incidencias.map((cierre) => ({
+        kpi: "Control y actualizacion de incidencias de acceso a sistemas",
+        formula: "Incidencias para acceder a sistemas al mes",
+        mes: `${meses[cierre.mes - 1]} ${cierre.anio}`,
+        base: cierre.totalIncidencias,
+        cumplidos: cierre.resueltas,
+        pendientes: cierre.abiertas + cierre.enProceso,
+        cancelados: cierre.canceladas,
+        resultado: `${cierre.totalIncidencias} incidencias`,
+        valor: Number(cierre.totalIncidencias || 0),
+        comentario: cierre.comentario || "",
+      })),
+    [incidencias]
+  );
+
+  const filasTiempoIncidencias = useMemo(
+    () =>
+      incidencias.map((cierre) => ({
+        kpi: "Tiempo promedio de resolucion de incidencias tecnologicas",
+        formula: "Suma de tiempo de resolucion / numero total de incidencias resueltas",
+        mes: `${meses[cierre.mes - 1]} ${cierre.anio}`,
+        base: cierre.resueltas,
+        cumplidos: `${Number(cierre.sumaTiempoResolucionHoras || 0).toFixed(2)} h`,
+        pendientes: cierre.abiertas + cierre.enProceso,
+        cancelados: cierre.canceladas,
+        resultado: `${Number(cierre.promedioResolucionHoras || 0).toFixed(2)} h`,
+        valor: Number(cierre.promedioResolucionHoras || 0),
+        comentario: cierre.comentario || "",
+      })),
+    [incidencias]
+  );
+
+  const filasSeguridadEquipos = useMemo(
+    () =>
+      seguridadEquipos.map((cierre) => ({
+        kpi: "Actualizacion de seguridad informatica",
+        formula: "Equipos con actualizaciones vigentes / total de equipos x 100",
+        mes: `${meses[cierre.mes - 1]} ${cierre.anio}`,
+        base: cierre.totalEquipos,
+        cumplidos: cierre.vigentes,
+        pendientes: cierre.pendientes + cierre.noRevisados,
+        cancelados: cierre.noAplica,
+        resultado: `${Number(cierre.porcentajeVigencia || 0).toFixed(2)}%`,
+        valor: Number(cierre.porcentajeVigencia || 0),
+        comentario: cierre.comentario || "",
+      })),
+    [seguridadEquipos]
+  );
+
+  const filasInventarioEquipos = useMemo(
+    () =>
+      inventarioEquipos.map((cierre) => ({
+        kpi: "Equipos tecnologicos inventariados",
+        formula: "Equipos registrados en inventario / total de equipos en operacion x 100",
+        mes: `${meses[cierre.mes - 1]} ${cierre.anio}`,
+        base: cierre.totalOperacion,
+        cumplidos: cierre.totalRegistrados,
+        pendientes: Math.max(Number(cierre.totalOperacion || 0) - Number(cierre.totalRegistrados || 0), 0),
+        cancelados: "",
+        resultado: `${Number(cierre.porcentajeInventario || 0).toFixed(2)}%`,
+        valor: Number(cierre.porcentajeInventario || 0),
+        comentario: cierre.comentario || "",
+      })),
+    [inventarioEquipos]
+  );
+
   const grupos = useMemo(
     () => [
       {
@@ -463,8 +549,32 @@ const Reportes = () => {
         descripcion: "Mantenimientos realizados contra mantenimientos programados.",
         filas: filasMantenimientos,
       },
+      {
+        id: "incidencias",
+        titulo: "Incidencias de acceso a sistemas",
+        descripcion: "Conteo mensual de incidencias registradas en software, hardware y accesos.",
+        filas: filasIncidencias,
+      },
+      {
+        id: "tiempo-incidencias",
+        titulo: "Tiempo promedio de resolucion",
+        descripcion: "Promedio mensual de horas para resolver incidencias tecnologicas.",
+        filas: filasTiempoIncidencias,
+      },
+      {
+        id: "seguridad-equipos",
+        titulo: "Actualizacion de seguridad informatica",
+        descripcion: "Equipos con actualizaciones de seguridad vigentes contra total de equipos.",
+        filas: filasSeguridadEquipos,
+      },
+      {
+        id: "inventario-equipos",
+        titulo: "Equipos tecnologicos inventariados",
+        descripcion: "Equipos registrados en inventario contra total de equipos en operacion.",
+        filas: filasInventarioEquipos,
+      },
     ],
-    [filasLicencias, filasMantenimientos]
+    [filasLicencias, filasMantenimientos, filasIncidencias, filasTiempoIncidencias, filasSeguridadEquipos, filasInventarioEquipos]
   );
 
   const filasGenerales = useMemo(() => grupos.flatMap((grupo) => grupo.filas), [grupos]);
@@ -472,7 +582,7 @@ const Reportes = () => {
     () => ({
       kpis: grupos.length,
       registros: filasGenerales.length,
-      promedio: promedio(filasGenerales),
+      conDatos: grupos.filter((grupo) => grupo.filas.length > 0).length,
     }),
     [filasGenerales, grupos.length]
   );
@@ -540,8 +650,8 @@ const Reportes = () => {
             <p className="mt-3 text-3xl font-semibold text-slate-900">{resumenGeneral.registros}</p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Promedio general</p>
-            <p className="mt-3 text-3xl font-semibold text-slate-900">{resumenGeneral.promedio.toFixed(2)}%</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">KPIs con datos</p>
+            <p className="mt-3 text-3xl font-semibold text-slate-900">{resumenGeneral.conDatos}</p>
           </div>
         </section>
 

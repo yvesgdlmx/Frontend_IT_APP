@@ -2,10 +2,14 @@ import React, { useMemo, useState } from "react";
 
 const crearFormularioInicial = () => ({
   marca: "",
+  modelo: "",
+  serie: "",
   tipoEquipo: "",
   nombreSistema: "",
   area: "",
   usuarioActual: "",
+  estadoInventario: "operacion",
+  observaciones: "",
   tipoAsignacion: "padre",
   cuentaRelacionadaId: "",
   licenciaIds: [],
@@ -13,10 +17,14 @@ const crearFormularioInicial = () => ({
 
 const mapearDispositivoAFormulario = (dispositivo) => ({
   marca: dispositivo?.marca || "",
+  modelo: dispositivo?.modelo || "",
+  serie: dispositivo?.serie || "",
   tipoEquipo: dispositivo?.tipoEquipo || "",
   nombreSistema: dispositivo?.nombreSistema || "",
   area: dispositivo?.area || "",
   usuarioActual: dispositivo?.usuarioActual || "",
+  estadoInventario: dispositivo?.estadoInventario || "operacion",
+  observaciones: dispositivo?.observaciones || "",
   tipoAsignacion: dispositivo?.cuentaHijaId ? "hija" : "padre",
   cuentaRelacionadaId: dispositivo?.cuentaHijaId || dispositivo?.cuentaPadreId || "",
   licenciaIds: (dispositivo?.licenciasAsignadas || [])
@@ -85,10 +93,14 @@ const ModalDispositivo = ({
 
     const payload = {
       marca: formulario.marca.trim(),
+      modelo: formulario.modelo.trim(),
+      serie: formulario.serie.trim(),
       tipoEquipo: formulario.tipoEquipo.trim(),
       nombreSistema: formulario.nombreSistema.trim(),
       area: formulario.area.trim(),
       usuarioActual: formulario.usuarioActual.trim(),
+      estadoInventario: formulario.estadoInventario,
+      observaciones: formulario.observaciones.trim(),
 
       // ✅ SOLO SI EXISTE CUENTA
       cuentaPadreId:
@@ -161,15 +173,52 @@ const ModalDispositivo = ({
                 </label>
 
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">Tipo de equipo</span>
+                  <span className="mb-2 block text-sm font-medium text-slate-700">Modelo</span>
                   <input
+                    name="modelo"
+                    value={formulario.modelo}
+                    onChange={handleChange}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
+                    placeholder="Modelo"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-slate-700">Serie</span>
+                  <input
+                    name="serie"
+                    value={formulario.serie}
+                    onChange={handleChange}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
+                    placeholder="Numero de serie"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-slate-700">Tipo de equipo</span>
+                  <select
                     name="tipoEquipo"
                     value={formulario.tipoEquipo}
                     onChange={handleChange}
                     className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
-                    placeholder="Laptop, Desktop, Mini PC..."
                     required
-                  />
+                  >
+                    <option value="">Selecciona tipo</option>
+                    <option value="Laptop">Laptop</option>
+                    <option value="Desktop">Desktop</option>
+                    <option value="Mini PC">Mini PC</option>
+                    <option value="Monitor">Monitor</option>
+                    <option value="Impresora">Impresora</option>
+                    <option value="Escaner">Escaner</option>
+                    <option value="Switch">Switch</option>
+                    <option value="Router">Router</option>
+                    <option value="Access Point">Access Point</option>
+                    <option value="Servidor">Servidor</option>
+                    <option value="Tablet">Tablet</option>
+                    <option value="Celular">Celular</option>
+                    <option value="UPS">UPS / No break</option>
+                    <option value="Otro">Otro</option>
+                  </select>
                 </label>
 
                 <label className="block">
@@ -195,15 +244,41 @@ const ModalDispositivo = ({
                   />
                 </label>
 
-                <label className="block md:col-span-2 xl:col-span-2">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">Usuario actual</span>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-slate-700">Usuario o responsable</span>
                   <input
                     name="usuarioActual"
                     value={formulario.usuarioActual}
                     onChange={handleChange}
                     className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
                     placeholder="Nombre del usuario o responsable"
-                    required
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-slate-700">Estado inventario</span>
+                  <select
+                    name="estadoInventario"
+                    value={formulario.estadoInventario}
+                    onChange={handleChange}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
+                  >
+                    <option value="operacion">En operacion</option>
+                    <option value="resguardo">Resguardo</option>
+                    <option value="mantenimiento">Mantenimiento</option>
+                    <option value="baja">Baja</option>
+                  </select>
+                </label>
+
+                <label className="block md:col-span-2 xl:col-span-3">
+                  <span className="mb-2 block text-sm font-medium text-slate-700">Observaciones</span>
+                  <textarea
+                    name="observaciones"
+                    value={formulario.observaciones}
+                    onChange={handleChange}
+                    rows={3}
+                    className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
+                    placeholder="Ubicacion, condicion o detalle de inventario"
                   />
                 </label>
               </div>

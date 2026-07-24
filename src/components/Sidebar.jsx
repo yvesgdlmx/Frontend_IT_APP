@@ -4,11 +4,13 @@ import {
   KeyRound,
   Users,
   Laptop,
+  Archive,
   Network,
   Shield,
   CalendarClock,
   CalendarDays,
   BarChart3,
+  AlertCircle,
   Settings,
   LogOut,
   ChevronRight,
@@ -23,7 +25,8 @@ const menu = [
     items: [
       { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard", exact: true },
       { name: "Mi espacio", icon: NotebookTabs, path: "/dashboard/mi-espacio" },
-      { name: "Agenda TI", icon: CalendarDays, path: "/dashboard/agenda" }
+      { name: "Agenda TI", icon: CalendarDays, path: "/dashboard/agenda" },
+      { name: "Incidencias", icon: AlertCircle, path: "/dashboard/incidencias" }
     ]
   },
   {
@@ -38,6 +41,8 @@ const menu = [
     section: "Infraestructura",
     items: [
       { name: "Dispositivos", icon: Laptop, path: "/dashboard/dispositivos" },
+      { name: "Inventario equipos", icon: Archive, path: "/dashboard/inventario-equipos" },
+      { name: "Seguridad equipos", icon: Shield, path: "/dashboard/seguridad-equipos" },
       { name: "Mapa IP", icon: Network, path: "/dashboard/mapa-ip" }
     ]
   },
