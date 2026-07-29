@@ -14,6 +14,35 @@ import ConfirmDialog from "../components/ui/ConfirmDialog";
 import ToastMensaje from "../components/ui/ToastMensaje";
 import clienteAxios from "../config/clienteAxios.jsx";
 
+const estadosInventario = {
+  operacion: {
+    label: "En operacion",
+    className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  },
+  resguardo: {
+    label: "Resguardo",
+    className: "border-amber-200 bg-amber-50 text-amber-700",
+  },
+  mantenimiento: {
+    label: "Mantenimiento",
+    className: "border-sky-200 bg-sky-50 text-sky-700",
+  },
+  baja: {
+    label: "Baja",
+    className: "border-rose-200 bg-rose-50 text-rose-700",
+  },
+};
+
+const EstadoInventarioBadge = ({ estado }) => {
+  const configuracion = estadosInventario[estado] || estadosInventario.operacion;
+
+  return (
+    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${configuracion.className}`}>
+      {configuracion.label}
+    </span>
+  );
+};
+
 const transformarDispositivo = (dispositivo) => ({
   id: dispositivo.id,
   marca: dispositivo.marca,
@@ -111,6 +140,8 @@ const Dispositivos = () => {
       dispositivo.nombreSistema,
       dispositivo.area,
       dispositivo.usuarioActual,
+      dispositivo.estadoInventario,
+      estadosInventario[dispositivo.estadoInventario]?.label,
       dispositivo.asignacionNombre,
       ...(dispositivo.licenciasAsignadas || []).map((asignacion) => asignacion.licencia?.nombre),
     ]
@@ -268,6 +299,7 @@ const Dispositivos = () => {
                       <tr>
                         <th className="px-4 py-4 text-left">Equipo</th>
                         <th className="px-4 py-4 text-left">Marca</th>
+                        <th className="px-4 py-4 text-left">Estado</th>
                         <th className="px-4 py-4 text-left">Área</th>
                         <th className="px-4 py-4 text-left">Usuario</th>
                         <th className="px-4 py-4 text-left">Licencias</th>
@@ -279,13 +311,13 @@ const Dispositivos = () => {
                     <tbody className="divide-y divide-slate-100 bg-white">
                       {cargando ? (
                         <tr>
-                          <td colSpan="7" className="px-6 py-12 text-center text-sm text-slate-500">
+                          <td colSpan="8" className="px-6 py-12 text-center text-sm text-slate-500">
                             Cargando dispositivos...
                           </td>
                         </tr>
                       ) : dispositivosFiltrados.length === 0 ? (
                         <tr>
-                          <td colSpan="7" className="px-6 py-12 text-center text-sm text-slate-500">
+                          <td colSpan="8" className="px-6 py-12 text-center text-sm text-slate-500">
                             No encontramos dispositivos con ese criterio.
                           </td>
                         </tr>
@@ -309,6 +341,10 @@ const Dispositivos = () => {
                                 <FiCpu size={15} className="text-slate-400" />
                                 {dispositivo.marca}
                               </div>
+                            </td>
+
+                            <td className="px-4 py-4">
+                              <EstadoInventarioBadge estado={dispositivo.estadoInventario} />
                             </td>
 
                             <td className="px-4 py-4 text-slate-600">
@@ -420,6 +456,12 @@ const Dispositivos = () => {
                 <div className="rounded-2xl border border-slate-200 bg-white p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Area</p>
                   <p className="mt-2 font-semibold text-slate-900">{dispositivoDetalle.area || "Sin area"}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Estado inventario</p>
+                  <div className="mt-2">
+                    <EstadoInventarioBadge estado={dispositivoDetalle.estadoInventario} />
+                  </div>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 md:col-span-2">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Paquete Office</p>

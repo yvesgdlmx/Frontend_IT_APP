@@ -73,7 +73,7 @@ const Sidebar = () => {
   };
 
   return (
-    <aside className="w-20 sm:w-56 lg:w-64 h-screen flex flex-col bg-slate-800 border-r border-slate-700">
+    <aside className="w-20 sm:w-56 lg:w-64 h-screen min-h-0 flex flex-col bg-slate-800 border-r border-slate-700">
 
   {/* LOGO */}
   <div className="h-16 flex items-center justify-center sm:justify-start px-2 sm:px-6 border-b border-slate-700">
@@ -88,7 +88,7 @@ const Sidebar = () => {
   </div>
 
   {/* MENU */}
-  <nav className="flex-1 px-2 sm:px-4 py-4 space-y-4 overflow-hidden">
+  <nav className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-2 py-4 pr-1 sm:px-4 sm:pr-2 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-600 hover:scrollbar-thumb-slate-500 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-600/80 hover:[&::-webkit-scrollbar-thumb]:bg-slate-500">
 
     {menu.map((section, i) => {
       const items = section.items.filter((item) => !item.adminOnly || usuario?.rol === "admin");
