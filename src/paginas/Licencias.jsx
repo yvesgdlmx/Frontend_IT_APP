@@ -4,6 +4,7 @@ import {
   FiCpu,
   FiDollarSign,
   FiEdit2,
+  FiInfo,
   FiKey,
   FiMonitor,
   FiPlus,
@@ -100,7 +101,9 @@ const Licencias = () => {
   const [licenciaEditar, setLicenciaEditar] = useState(null);
   const [licenciaEliminar, setLicenciaEliminar] = useState(null);
   const [licenciaSeleccionada, setLicenciaSeleccionada] = useState(null);
+  const [formulaKpiAbierta, setFormulaKpiAbierta] = useState(false);
   const [dispositivoAsignar, setDispositivoAsignar] = useState("");
+  const [busquedaDispositivoAsignar, setBusquedaDispositivoAsignar] = useState("");
   const [notasAsignacion, setNotasAsignacion] = useState("");
   const [mensaje, setMensaje] = useState({ tipo: "", texto: "" });
 
@@ -174,6 +177,33 @@ const Licencias = () => {
     return dispositivos.filter((dispositivo) => !asignados.has(dispositivo.id));
   }, [dispositivos, licenciaSeleccionada]);
 
+  const dispositivosAsignacionFiltrados = useMemo(() => {
+    const termino = busquedaDispositivoAsignar.trim().toLowerCase();
+
+    if (!termino) return dispositivosDisponibles.slice(0, 8);
+
+    return dispositivosDisponibles
+      .filter((dispositivo) =>
+        [
+          dispositivo.nombreSistema,
+          dispositivo.marca,
+          dispositivo.modelo,
+          dispositivo.tipoEquipo,
+          dispositivo.area,
+          dispositivo.usuarioActual,
+          dispositivo.serie,
+        ]
+          .filter(Boolean)
+          .some((valor) => valor.toLowerCase().includes(termino))
+      )
+      .slice(0, 8);
+  }, [busquedaDispositivoAsignar, dispositivosDisponibles]);
+
+  const dispositivoAsignadoSeleccionado = useMemo(
+    () => dispositivosDisponibles.find((dispositivo) => dispositivo.id === dispositivoAsignar) || null,
+    [dispositivoAsignar, dispositivosDisponibles]
+  );
+
   const licenciasFiltradas = licencias.filter((item) => {
     const termino = busqueda.trim().toLowerCase();
     if (!termino) return true;
@@ -210,6 +240,7 @@ const Licencias = () => {
   const seleccionarLicencia = (licencia) => {
     setLicenciaSeleccionada(licencia);
     setDispositivoAsignar("");
+    setBusquedaDispositivoAsignar("");
     setNotasAsignacion("");
   };
 
@@ -298,6 +329,7 @@ const Licencias = () => {
       setLicencias((prev) => prev.map((item) => (item.id === data.id ? data : item)));
       setLicenciaSeleccionada(data);
       setDispositivoAsignar("");
+      setBusquedaDispositivoAsignar("");
       setNotasAsignacion("");
       setMensaje({ tipo: "success", texto: "Dispositivo asignado a la licencia." });
     } catch (error) {
@@ -695,7 +727,20 @@ const Licencias = () => {
                     ["KPI", previewCierre ? `${Number(previewCierre.porcentajeUso || 0).toFixed(2)}%` : "-"],
                   ].map(([label, valor]) => (
                     <div key={label} className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</p>
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</p>
+                        {label === "KPI" ? (
+                          <button
+                            type="button"
+                            onClick={() => setFormulaKpiAbierta(true)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-500 transition hover:border-slate-300 hover:bg-slate-900 hover:text-white"
+                            title="Ver formula KPI"
+                            aria-label="Ver formula KPI de licencias"
+                          >
+                            <FiInfo size={15} />
+                          </button>
+                        ) : null}
+                      </div>
                       <p className="mt-2 text-2xl font-semibold text-slate-900">{valor}</p>
                     </div>
                   ))}
@@ -814,21 +859,92 @@ const Licencias = () => {
                   </p>
 
                   <div className="mt-4 space-y-3">
-                    <label className="block">
+                    <div className="block">
                       <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Dispositivo</span>
-                      <select
-                        value={dispositivoAsignar}
-                        onChange={(e) => setDispositivoAsignar(e.target.value)}
-                        className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-200"
-                      >
-                        <option value="">Seleccionar dispositivo</option>
-                        {dispositivosDisponibles.map((dispositivo) => (
-                          <option key={dispositivo.id} value={dispositivo.id}>
-                            {dispositivo.nombreSistema} - {dispositivo.usuarioActual}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                      <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
+                        <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 transition focus-within:border-slate-400 focus-within:bg-white focus-within:ring-4 focus-within:ring-slate-100">
+                          <FiSearch size={16} className="text-slate-400" />
+                          <input
+                            value={busquedaDispositivoAsignar}
+                            onChange={(e) => {
+                              setBusquedaDispositivoAsignar(e.target.value);
+                              setDispositivoAsignar("");
+                            }}
+                            className="min-w-0 flex-1 bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
+                            placeholder="Buscar por equipo, area, usuario..."
+                          />
+                        </div>
+
+                        {dispositivoAsignadoSeleccionado ? (
+                          <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-emerald-950">
+                                  {dispositivoAsignadoSeleccionado.nombreSistema}
+                                </p>
+                                <p className="mt-1 text-xs text-emerald-700">
+                                  {dispositivoAsignadoSeleccionado.area || "Sin area"} · {dispositivoAsignadoSeleccionado.usuarioActual || "Sin usuario"}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDispositivoAsignar("");
+                                  setBusquedaDispositivoAsignar("");
+                                }}
+                                className="shrink-0 rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                              >
+                                Cambiar
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-300 hover:scrollbar-thumb-slate-400 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400">
+                            {dispositivosDisponibles.length === 0 ? (
+                              <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">
+                                No hay dispositivos disponibles para esta licencia.
+                              </p>
+                            ) : dispositivosAsignacionFiltrados.length === 0 ? (
+                              <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">
+                                No encontramos dispositivos con esa busqueda.
+                              </p>
+                            ) : (
+                              dispositivosAsignacionFiltrados.map((dispositivo) => (
+                                <button
+                                  key={dispositivo.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setDispositivoAsignar(dispositivo.id);
+                                    setBusquedaDispositivoAsignar(dispositivo.nombreSistema || "");
+                                  }}
+                                  className="group flex w-full items-start gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left transition hover:border-sky-200 hover:bg-sky-50"
+                                >
+                                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition group-hover:bg-sky-100 group-hover:text-sky-700">
+                                    <FiMonitor size={17} />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-semibold text-slate-900">
+                                      {dispositivo.nombreSistema || "Sin nombre"}
+                                    </p>
+                                    <p className="mt-1 text-xs text-slate-500">
+                                      {dispositivo.marca || "Sin marca"} · {dispositivo.tipoEquipo || "Sin tipo"}
+                                    </p>
+                                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-600">
+                                      <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1">
+                                        {dispositivo.area || "Sin area"}
+                                      </span>
+                                      <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1">
+                                        {dispositivo.usuarioActual || "Sin usuario"}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
                     <label className="block">
                       <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Notas</span>
@@ -918,6 +1034,63 @@ const Licencias = () => {
           </section>
         </div>
       </div>
+
+      {formulaKpiAbierta ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6 sm:px-6">
+          <div className="absolute inset-0 bg-slate-950/55 backdrop-blur-sm" onClick={() => setFormulaKpiAbierta(false)} />
+
+          <div className="relative w-full max-w-xl overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.24)]">
+            <button
+              type="button"
+              onClick={() => setFormulaKpiAbierta(false)}
+              className="absolute right-5 top-5 z-10 flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-xl font-semibold text-slate-500 shadow-sm shadow-slate-200/80 transition hover:-translate-y-0.5 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-rose-100"
+              aria-label="Cerrar formula KPI"
+            >
+              ×
+            </button>
+
+            <div className="border-b border-slate-200 bg-[linear-gradient(135deg,_#f8fafc,_#ffffff)] px-6 py-5">
+              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-white">
+                <FiInfo size={18} />
+              </div>
+              <h2 className="mt-4 pr-12 text-2xl font-semibold text-slate-900">Formula del KPI</h2>
+              <p className="mt-2 text-sm text-slate-500">
+                Este indicador mide el porcentaje de licencias contratadas que estan siendo utilizadas.
+              </p>
+            </div>
+
+            <div className="space-y-4 bg-slate-50 p-6">
+              <div className="rounded-3xl border border-slate-200 bg-white p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Formula usada</p>
+                <p className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-semibold text-slate-800 shadow-inner shadow-slate-200/60 sm:text-base">
+                  Licencias utilizadas / Licencias contratadas × 100
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Utilizadas</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-900">{previewCierre?.totalUtilizadas ?? "-"}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Contratadas</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-900">{previewCierre?.totalContratadas ?? "-"}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Resultado</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-900">
+                    {previewCierre ? `${Number(previewCierre.porcentajeUso || 0).toFixed(2)}%` : "-"}
+                  </p>
+                </div>
+              </div>
+
+              <p className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+                Interpretacion: 100% significa que todas las licencias contratadas estan asignadas. Debajo de 100% indica licencias disponibles o sin usar. Arriba de 100% indicaria sobreasignacion o una diferencia en la captura.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <ConfirmDialog
         abierto={Boolean(licenciaEliminar)}
