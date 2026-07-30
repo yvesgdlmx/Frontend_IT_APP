@@ -267,7 +267,7 @@ const InventarioEquipos = () => {
                 </button>
               </div>
               <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-                <p className="font-semibold text-slate-900">Historial del anio</p>
+                <p className="font-semibold text-slate-900">Historial del año</p>
                 <div className="mt-4 max-h-64 overflow-auto">
                   {cierres.length === 0 ? <p className="py-6 text-center text-sm text-slate-500">Sin cierres guardados.</p> : cierres.map((cierre) => (
                     <div key={cierre.id} className="border-b border-slate-100 py-3 last:border-b-0">

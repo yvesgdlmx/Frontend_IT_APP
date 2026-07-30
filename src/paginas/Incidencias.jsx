@@ -516,7 +516,7 @@ const Incidencias = () => {
 
                   <div className="rounded-3xl border border-slate-200 bg-white">
                     <div className="border-b border-slate-100 px-4 py-3">
-                      <p className="text-sm font-semibold text-slate-900">Historial del anio</p>
+                      <p className="text-sm font-semibold text-slate-900">Historial del año</p>
                     </div>
                     <div className="max-h-44 overflow-auto">
                       {cierres.length === 0 ? (

@@ -711,7 +711,7 @@ const Reportes = () => {
                         ) : grupo.filas.length === 0 ? (
                           <tr>
                             <td colSpan="7" className="px-6 py-12 text-center text-slate-500">
-                              No hay cierres guardados para este KPI en este anio.
+                              No hay cierres guardados para este KPI en este año.
                             </td>
                           </tr>
                         ) : (
