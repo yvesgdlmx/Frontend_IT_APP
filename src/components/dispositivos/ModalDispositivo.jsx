@@ -1,5 +1,21 @@
 import React, { useMemo, useState } from "react";
 
+const areasDispositivos = [
+  "Contabilidad",
+  "Comercio Exterior",
+  "Pagos y Compras",
+  "Recursos Humanos",
+  "Capacitacion",
+  "Oficina de valores",
+  "Mantenimiento",
+  "Produccion Linea automatica",
+  "Produccion Biselado",
+  "Produccion Armado",
+  "Produccion AR",
+  "Almacen",
+  "Direccion",
+];
+
 const crearFormularioInicial = () => ({
   marca: "",
   modelo: "",
@@ -55,6 +71,16 @@ const ModalDispositivo = ({
     () => (formulario.tipoAsignacion === "hija" ? cuentasHija : cuentasPadre),
     [formulario.tipoAsignacion, cuentasHija, cuentasPadre]
   );
+
+  const opcionesAreas = useMemo(() => {
+    const areaActual = formulario.area?.trim();
+
+    if (!areaActual || areasDispositivos.includes(areaActual)) {
+      return areasDispositivos;
+    }
+
+    return [areaActual, ...areasDispositivos];
+  }, [formulario.area]);
 
   if (!abierto) return null;
 
@@ -235,13 +261,19 @@ const ModalDispositivo = ({
 
                 <label className="block">
                   <span className="mb-2 block text-sm font-medium text-slate-700">Área</span>
-                  <input
+                  <select
                     name="area"
                     value={formulario.area}
                     onChange={handleChange}
                     className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
-                    placeholder="Ventas, TI, Dirección..."
-                  />
+                  >
+                    <option value="">Sin area asignada</option>
+                    {opcionesAreas.map((area) => (
+                      <option key={area} value={area}>
+                        {area}
+                      </option>
+                    ))}
+                  </select>
                 </label>
 
                 <label className="block">
