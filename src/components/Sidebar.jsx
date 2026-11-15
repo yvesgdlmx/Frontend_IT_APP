@@ -1,16 +1,12 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard,
   KeyRound,
   Users,
   Laptop,
-  Archive,
   Network,
   Shield,
   CalendarClock,
   CalendarDays,
-  BarChart3,
-  AlertCircle,
   Settings,
   LogOut,
   ChevronRight,
@@ -23,10 +19,8 @@ const menu = [
   {
     section: "General",
     items: [
-      { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard", exact: true },
       { name: "Mi espacio", icon: NotebookTabs, path: "/dashboard/mi-espacio" },
       { name: "Agenda TI", icon: CalendarDays, path: "/dashboard/agenda" },
-      { name: "Incidencias", icon: AlertCircle, path: "/dashboard/incidencias" }
     ]
   },
   {
@@ -40,9 +34,7 @@ const menu = [
   {
     section: "Infraestructura",
     items: [
-      { name: "Dispositivos", icon: Laptop, path: "/dashboard/dispositivos" },
-      { name: "Inventario equipos", icon: Archive, path: "/dashboard/inventario-equipos" },
-      { name: "Seguridad equipos", icon: Shield, path: "/dashboard/seguridad-equipos" },
+      { name: "Equipos", icon: Laptop, path: "/dashboard/equipos" },
       { name: "Mapa IP", icon: Network, path: "/dashboard/mapa-ip" }
     ]
   },
@@ -55,7 +47,6 @@ const menu = [
   {
     section: "Sistema",
     items: [
-      { name: "Reportes", icon: BarChart3, path: "/dashboard/reportes" },
       { name: "Usuarios", icon: UserPlus, path: "/dashboard/usuarios", adminOnly: true },
       { name: "Configuracion", icon: Settings, path: "/dashboard/configuracion" }
     ]

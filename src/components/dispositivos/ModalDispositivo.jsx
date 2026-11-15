@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { tiposEquipo } from "../../utils/equipos.js";
 
 const areasDispositivos = [
   "Contabilidad",
@@ -28,7 +29,6 @@ const crearFormularioInicial = () => ({
   observaciones: "",
   tipoAsignacion: "padre",
   cuentaRelacionadaId: "",
-  licenciaIds: [],
 });
 
 const mapearDispositivoAFormulario = (dispositivo) => ({
@@ -43,9 +43,6 @@ const mapearDispositivoAFormulario = (dispositivo) => ({
   observaciones: dispositivo?.observaciones || "",
   tipoAsignacion: dispositivo?.cuentaHijaId ? "hija" : "padre",
   cuentaRelacionadaId: dispositivo?.cuentaHijaId || dispositivo?.cuentaPadreId || "",
-  licenciaIds: (dispositivo?.licenciasAsignadas || [])
-    .map((asignacion) => asignacion.licencia?.id)
-    .filter(Boolean),
 });
 
 const ModalDispositivo = ({
@@ -57,7 +54,6 @@ const ModalDispositivo = ({
   dispositivoInicial = null,
   cuentasPadre = [],
   cuentasHija = [],
-  licencias = [],
 }) => {
   const inicial = modo === "editar" && dispositivoInicial
     ? mapearDispositivoAFormulario(dispositivoInicial)
@@ -96,20 +92,6 @@ const ModalDispositivo = ({
     }));
   };
 
-  const toggleLicencia = (licenciaId) => {
-    setFormulario((prev) => {
-      const seleccionadas = new Set(prev.licenciaIds || []);
-
-      if (seleccionadas.has(licenciaId)) {
-        seleccionadas.delete(licenciaId);
-      } else {
-        seleccionadas.add(licenciaId);
-      }
-
-      return { ...prev, licenciaIds: [...seleccionadas] };
-    });
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -138,7 +120,6 @@ const ModalDispositivo = ({
         formulario.tipoAsignacion === "hija" && formulario.cuentaRelacionadaId
           ? formulario.cuentaRelacionadaId
           : null,
-      licenciaIds: formulario.licenciaIds || [],
     };
 
     const ok = await onGuardar(payload);
@@ -162,13 +143,13 @@ const ModalDispositivo = ({
         <div className="border-b border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(148,163,184,0.14),_transparent_28%),linear-gradient(135deg,_#f8fafc,_#ffffff)] px-6 py-5 sm:px-8">
           <div className="pr-14">
             <div className="inline-flex rounded-full border border-slate-300 bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-700">
-              {esEdicion ? "Editar dispositivo" : "Nuevo dispositivo"}
+              {esEdicion ? "Editar equipo" : "Nuevo equipo"}
             </div>
             <h2 className="mt-3 text-[1.75rem] font-semibold leading-tight text-slate-900">
-              {esEdicion ? "Actualizar dispositivo" : "Registrar y asignar dispositivo"}
+              {esEdicion ? "Actualizar equipo" : "Registrar equipo"}
             </h2>
             <p className="mt-2 text-sm text-slate-500">
-              Completa los datos del equipo y asígnalo a una cuenta padre o hija de microsoft office.
+              Registra computadoras, periféricos y otros equipos. La cuenta Office es opcional; las licencias se vinculan desde Licencias.
             </p>
           </div>
         </div>
@@ -230,31 +211,21 @@ const ModalDispositivo = ({
                     required
                   >
                     <option value="">Selecciona tipo</option>
-                    <option value="Laptop">Laptop</option>
-                    <option value="Desktop">Desktop</option>
-                    <option value="Mini PC">Mini PC</option>
-                    <option value="Monitor">Monitor</option>
-                    <option value="Impresora">Impresora</option>
-                    <option value="Escaner">Escaner</option>
-                    <option value="Switch">Switch</option>
-                    <option value="Router">Router</option>
-                    <option value="Access Point">Access Point</option>
-                    <option value="Servidor">Servidor</option>
-                    <option value="Tablet">Tablet</option>
-                    <option value="Celular">Celular</option>
-                    <option value="UPS">UPS / No break</option>
-                    <option value="Otro">Otro</option>
+                    {formulario.tipoEquipo && !tiposEquipo.some((tipo) => tipo.valor === formulario.tipoEquipo) ? (
+                      <option value={formulario.tipoEquipo}>{formulario.tipoEquipo}</option>
+                    ) : null}
+                    {tiposEquipo.map((tipo) => <option key={tipo.valor} value={tipo.valor}>{tipo.label}</option>)}
                   </select>
                 </label>
 
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">Nombre del sistema</span>
+                  <span className="mb-2 block text-sm font-medium text-slate-700">Nombre o identificador del equipo</span>
                   <input
                     name="nombreSistema"
                     value={formulario.nombreSistema}
                     onChange={handleChange}
                     className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
-                    placeholder="PC-VENTAS-01"
+                    placeholder="PC-VENTAS-01, TECLADO-001..."
                     required
                   />
                 </label>
@@ -313,60 +284,6 @@ const ModalDispositivo = ({
                     placeholder="Ubicacion, condicion o detalle de inventario"
                   />
                 </label>
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">
-                  Licencias
-                </p>
-                <h3 className="mt-2 text-lg font-semibold text-slate-900">
-                  Agregar licencia
-                </h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  Selecciona las licencias normales que usa este dispositivo.
-                </p>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {licencias.length === 0 ? (
-                  <p className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500 md:col-span-2 xl:col-span-3">
-                    No hay licencias registradas para asignar.
-                  </p>
-                ) : (
-                  licencias.map((licencia) => {
-                    const seleccionada = formulario.licenciaIds?.includes(licencia.id);
-                    const sinCupo = !seleccionada && Number(licencia.cantidadUsada || 0) >= Number(licencia.cantidadTotal || 0);
-
-                    return (
-                      <label
-                        key={licencia.id}
-                        className={`block rounded-2xl border p-4 transition ${
-                          seleccionada
-                            ? "border-emerald-300 bg-emerald-50"
-                            : "border-slate-200 bg-slate-50 hover:bg-white"
-                        } ${sinCupo ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <input
-                            type="checkbox"
-                            checked={seleccionada}
-                            disabled={sinCupo}
-                            onChange={() => toggleLicencia(licencia.id)}
-                            className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                          />
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-slate-900">{licencia.nombre}</p>
-                            <p className="mt-1 text-xs text-slate-500">
-                              {licencia.proveedor} · {licencia.cantidadUsada || 0}/{licencia.cantidadTotal || 0} usadas
-                            </p>
-                          </div>
-                        </div>
-                      </label>
-                    );
-                  })
-                )}
               </div>
             </div>
 

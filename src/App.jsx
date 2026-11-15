@@ -7,20 +7,15 @@ import Login from './paginas/Login'
 import OlvidePassword from './paginas/OlvidePassword'
 import RestablecerPassword from './paginas/RestablecerPassword'
 import Cuentas365 from './paginas/Cuentas365'
-import Dashboard from './paginas/Dashboard'
 import Dispositivos from './paginas/Dispositivos'
 import MapaIp from './paginas/MapaIp'
 import Credenciales from './paginas/Credenciales'
 import Configuracion from './paginas/Configuracion'
 import Vencimientos from './paginas/Vencimientos'
 import Agenda from './paginas/Agenda'
-import Incidencias from './paginas/Incidencias'
-import SeguridadEquipos from './paginas/SeguridadEquipos'
-import InventarioEquipos from './paginas/InventarioEquipos'
 import EspacioTrabajo from './paginas/EspacioTrabajo'
 import Usuarios from './paginas/Usuarios'
 import Licencias from './paginas/Licencias'
-import Reportes from './paginas/Reportes'
 
 function App() {
   return (
@@ -37,20 +32,18 @@ function App() {
 
           {/* APP */}
           <Route path="/dashboard" element={<LayoutProtegido />}>
-            <Route index element={<Dashboard />} />
+            <Route index element={<Navigate to="equipos" replace />} />
             <Route path="cuentas365" element={<Cuentas365 />} />
             <Route path="licencias" element={<Licencias />} />
             <Route path="agenda" element={<Agenda />} />
-            <Route path="incidencias" element={<Incidencias />} />
-            <Route path="seguridad-equipos" element={<SeguridadEquipos />} />
-            <Route path="inventario-equipos" element={<InventarioEquipos />} />
+            <Route path="inventario-equipos" element={<Navigate to="/dashboard/equipos" replace />} />
             <Route path="vencimientos" element={<Vencimientos />} />
-            <Route path="dispositivos" element={<Dispositivos />} />
+            <Route path="equipos" element={<Dispositivos />} />
+            <Route path="dispositivos" element={<Navigate to="/dashboard/equipos" replace />} />
             <Route path="mapa-ip" element={<MapaIp />} />
             <Route path='credenciales' element={<Credenciales/>}/>
             <Route path="mi-espacio" element={<EspacioTrabajo />} />
             <Route path="usuarios" element={<Usuarios />} />
-            <Route path="reportes" element={<Reportes />} />
             <Route path="configuracion" element={<Configuracion />} />
           </Route>
 

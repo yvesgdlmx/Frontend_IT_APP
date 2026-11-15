@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   FiCpu,
   FiEdit2,
@@ -13,6 +14,7 @@ import ModalDispositivo from "../components/dispositivos/ModalDispositivo";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import ToastMensaje from "../components/ui/ToastMensaje";
 import clienteAxios from "../config/clienteAxios.jsx";
+import { normalizarTipoEquipo, etiquetaTipoEquipo, resumirEquipos } from "../utils/equipos.js";
 
 const estadosInventario = {
   operacion: {
@@ -58,7 +60,7 @@ const transformarDispositivo = (dispositivo) => ({
   cuentaHijaId: dispositivo.cuentaHijaId,
   cuentaPadreCorreo: dispositivo.cuentaPadre?.correo || "",
   cuentaHijaCorreo: dispositivo.cuentaHija?.correo || "",
-  asignacionTipo: dispositivo.cuentaHijaId ? "Hija" : "Padre",
+  asignacionTipo: dispositivo.cuentaHijaId ? "Hija" : dispositivo.cuentaPadreId ? "Padre" : "Sin cuenta",
   asignacionNombre: dispositivo.cuentaHija?.correo || dispositivo.cuentaPadre?.correo || "Sin asignar",
   licenciasAsignadas: Array.isArray(dispositivo.licenciasAsignadas) ? dispositivo.licenciasAsignadas : [],
 });
@@ -66,8 +68,12 @@ const transformarDispositivo = (dispositivo) => ({
 const Dispositivos = () => {
   const [dispositivos, setDispositivos] = useState([]);
   const [cuentas, setCuentas] = useState([]);
-  const [licencias, setLicencias] = useState([]);
   const [busqueda, setBusqueda] = useState("");
+  const [filtroTipo, setFiltroTipo] = useState("");
+  const [filtroArea, setFiltroArea] = useState("");
+  const [filtroEstado, setFiltroEstado] = useState("");
+  const [filtroResponsable, setFiltroResponsable] = useState("");
+  const [vista, setVista] = useState("listado");
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
@@ -82,10 +88,9 @@ const Dispositivos = () => {
   const cargarDatos = async () => {
     setCargando(true);
     try {
-      const [respuestaDispositivos, respuestaCuentas, respuestaLicencias] = await Promise.all([
+      const [respuestaDispositivos, respuestaCuentas] = await Promise.all([
         clienteAxios.get("/dispositivos"),
         clienteAxios.get("/cuentas/padre"),
-        clienteAxios.get("/licencias"),
       ]);
 
       setDispositivos(
@@ -95,7 +100,6 @@ const Dispositivos = () => {
       );
 
       setCuentas(Array.isArray(respuestaCuentas.data) ? respuestaCuentas.data : []);
-      setLicencias(Array.isArray(respuestaLicencias.data) ? respuestaLicencias.data : []);
     } catch (error) {
       setMensaje({
         tipo: "error",
@@ -130,13 +134,24 @@ const Dispositivos = () => {
     [cuentas]
   );
 
+  const opcionesTipos = useMemo(() => [...new Set(dispositivos.map((equipo) => normalizarTipoEquipo(equipo.tipoEquipo)))].sort(), [dispositivos]);
+  const opcionesAreas = useMemo(() => [...new Set(dispositivos.map((equipo) => equipo.area).filter(Boolean))].sort(), [dispositivos]);
+  const opcionesResponsables = useMemo(() => [...new Set(dispositivos.map((equipo) => equipo.usuarioActual).filter(Boolean))].sort(), [dispositivos]);
+
   const dispositivosFiltrados = dispositivos.filter((dispositivo) => {
+    if (filtroTipo && normalizarTipoEquipo(dispositivo.tipoEquipo) !== filtroTipo) return false;
+    if (filtroArea && dispositivo.area !== filtroArea) return false;
+    if (filtroEstado && dispositivo.estadoInventario !== filtroEstado) return false;
+    if (filtroResponsable && dispositivo.usuarioActual !== filtroResponsable) return false;
     const termino = busqueda.trim().toLowerCase();
     if (!termino) return true;
 
     return [
       dispositivo.marca,
+      dispositivo.modelo,
+      dispositivo.serie,
       dispositivo.tipoEquipo,
+      etiquetaTipoEquipo(dispositivo.tipoEquipo),
       dispositivo.nombreSistema,
       dispositivo.area,
       dispositivo.usuarioActual,
@@ -148,6 +163,8 @@ const Dispositivos = () => {
       .filter(Boolean)
       .some((valor) => valor.toLowerCase().includes(termino));
   });
+
+  const resumenEquipos = resumirEquipos(dispositivosFiltrados);
 
   const abrirCrear = () => {
     setModoModal("crear");
@@ -241,19 +258,19 @@ const Dispositivos = () => {
                   Inventario
                 </div>
                 <h1 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900 sm:text-[2rem]">
-                  Dispositivos asignados
+                  Equipos
                 </h1>
                 <p className="mt-2 text-sm text-slate-500">
-                  Administra equipos y relaciónalos con tus paquetes asignados microsoft family
+                  Administra el inventario, los datos de cada equipo y sus responsables. Gestiona las licencias desde la sección Licencias.
                 </p>
               </div>
 
               <div className="">
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                    Dispositivos
+                    Equipos registrados
                   </p>
-                  <p className="mt-2 text-2xl font-semibold text-slate-900">{dispositivos.length}</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-900">{cargando ? "..." : dispositivos.length}</p>
                 </div>
               </div>
             </div>
@@ -268,7 +285,7 @@ const Dispositivos = () => {
                   </div>
                   <p className="mt-3 text-base font-semibold text-slate-900">Equipos registrados</p>
                   <p className="mt-1 text-sm text-slate-500">
-                    Consulta información del equipo, su usuario y la cuenta asignada.
+                    Consulta todos tus equipos y su inventario por tipo y estado.
                   </p>
                 </div>
 
@@ -276,7 +293,8 @@ const Dispositivos = () => {
                   <input
                     value={busqueda}
                     onChange={(e) => setBusqueda(e.target.value)}
-                    placeholder="Buscar por equipo, usuario o cuenta"
+                    placeholder="Buscar equipo, serie, usuario o cuenta"
+                    aria-label="Buscar equipos"
                     className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-200 sm:w-80"
                   />
 
@@ -285,15 +303,73 @@ const Dispositivos = () => {
                     onClick={abrirCrear}
                   >
                     <FiPlus size={16} />
-                    Nuevo dispositivo
+                    Nuevo equipo
                   </button>
                 </div>
               </div>
             </div>
 
-            <div className="p-5 sm:p-6 xl:p-7">
+            <div className="space-y-4 p-5 sm:p-6 xl:p-7">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <label className="text-sm text-slate-600">
+                  Tipo de equipo
+                  <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white p-3">
+                    <option value="">Todos los tipos</option>
+                    {opcionesTipos.map((tipo) => <option key={tipo} value={tipo}>{etiquetaTipoEquipo(tipo)}</option>)}
+                  </select>
+                </label>
+                <label className="text-sm text-slate-600">
+                  Área
+                  <select value={filtroArea} onChange={(e) => setFiltroArea(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white p-3">
+                    <option value="">Todas las áreas</option>
+                    {opcionesAreas.map((area) => <option key={area} value={area}>{area}</option>)}
+                  </select>
+                </label>
+                <label className="text-sm text-slate-600">
+                  Estado
+                  <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white p-3">
+                    <option value="">Todos los estados</option>
+                    {Object.entries(estadosInventario).map(([valor, estado]) => <option key={valor} value={valor}>{estado.label}</option>)}
+                  </select>
+                </label>
+                <label className="text-sm text-slate-600">
+                  Responsable
+                  <select value={filtroResponsable} onChange={(e) => setFiltroResponsable(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white p-3">
+                    <option value="">Todos los responsables</option>
+                    {opcionesResponsables.map((responsable) => <option key={responsable} value={responsable}>{responsable}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex gap-2" aria-label="Vista de equipos">
+                  {[["listado", "Listado"], ["resumen", "Resumen por tipo y estado"]].map(([valor, label]) => (
+                    <button key={valor} type="button" aria-pressed={vista === valor} onClick={() => setVista(valor)} className={`rounded-xl border px-4 py-2 text-sm font-semibold ${vista === valor ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-3 text-sm text-slate-500">
+                  <span>{cargando ? "Cargando..." : `${dispositivosFiltrados.length} de ${dispositivos.length} equipos`}</span>
+                  <button type="button" onClick={() => { setBusqueda(""); setFiltroTipo(""); setFiltroArea(""); setFiltroEstado(""); setFiltroResponsable(""); }} className="font-semibold text-sky-700 hover:underline">Limpiar filtros</button>
+                </div>
+              </div>
               <div className="overflow-hidden rounded-3xl border border-slate-200">
                 <div className="overflow-x-auto">
+                  {vista === "resumen" ? (
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                        <tr>{["Tipo de equipo", "Total", "En operación", "Resguardo", "Mantenimiento", "Baja"].map((label) => <th key={label} className="px-4 py-4 text-left">{label}</th>)}</tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {cargando ? <tr><td colSpan="6" className="p-8 text-center text-slate-500">Cargando equipos...</td></tr> : resumenEquipos.length === 0 ? <tr><td colSpan="6" className="p-8 text-center text-slate-500">No hay equipos con estos filtros.</td></tr> : resumenEquipos.map((grupo) => (
+                          <tr key={grupo.tipo} className="hover:bg-slate-50">
+                            <td className="px-4 py-4 font-semibold text-slate-900">{grupo.nombre}</td>
+                            {["total", "operacion", "resguardo", "mantenimiento", "baja"].map((campo) => <td key={campo} className="px-4 py-4 text-slate-600">{grupo[campo]}</td>)}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
                   <table className="min-w-full text-sm">
                     <thead className="bg-slate-50 text-xs uppercase tracking-[0.18em] text-slate-500">
                       <tr>
@@ -331,7 +407,7 @@ const Dispositivos = () => {
                                 </div>
                                 <div>
                                   <p className="font-semibold text-slate-900">{dispositivo.nombreSistema}</p>
-                                  <p className="mt-1 text-xs text-slate-500">{dispositivo.tipoEquipo}</p>
+                                  <p className="mt-1 text-xs text-slate-500">{etiquetaTipoEquipo(dispositivo.tipoEquipo)}</p>
                                 </div>
                               </div>
                             </td>
@@ -354,7 +430,7 @@ const Dispositivos = () => {
                             <td className="px-4 py-4">
                               <div className="flex items-center gap-2 text-slate-700">
                                 <FiUser size={15} className="text-slate-400" />
-                                {dispositivo.usuarioActual}
+                                {dispositivo.usuarioActual || "Sin responsable"}
                               </div>
                             </td>
 
@@ -416,6 +492,7 @@ const Dispositivos = () => {
                       )}
                     </tbody>
                   </table>
+                  )}
                 </div>
               </div>
             </div>
@@ -438,12 +515,12 @@ const Dispositivos = () => {
             </button>
 
             <div className="border-b border-slate-200 bg-[linear-gradient(135deg,_#f8fafc,_#ffffff)] px-6 py-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Detalle del dispositivo</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Detalle del equipo</p>
               <h2 className="mt-2 pr-12 text-2xl font-semibold text-slate-900">
                 {dispositivoDetalle.nombreSistema}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                {dispositivoDetalle.tipoEquipo} · {dispositivoDetalle.marca}
+                {etiquetaTipoEquipo(dispositivoDetalle.tipoEquipo)} · {dispositivoDetalle.marca}
               </p>
             </div>
 
@@ -451,8 +528,14 @@ const Dispositivos = () => {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="rounded-2xl border border-slate-200 bg-white p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Usuario</p>
-                  <p className="mt-2 font-semibold text-slate-900">{dispositivoDetalle.usuarioActual}</p>
+                  <p className="mt-2 font-semibold text-slate-900">{dispositivoDetalle.usuarioActual || "Sin responsable"}</p>
                 </div>
+                {[ ["Modelo", dispositivoDetalle.modelo], ["Serie", dispositivoDetalle.serie], ["Observaciones", dispositivoDetalle.observaciones] ].map(([label, valor]) => (
+                  <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</p>
+                    <p className="mt-2 whitespace-pre-wrap break-words text-slate-900">{valor || "Sin registrar"}</p>
+                  </div>
+                ))}
                 <div className="rounded-2xl border border-slate-200 bg-white p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Area</p>
                   <p className="mt-2 font-semibold text-slate-900">{dispositivoDetalle.area || "Sin area"}</p>
@@ -475,6 +558,7 @@ const Dispositivos = () => {
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Licencias vinculadas</p>
                     <p className="mt-1 text-sm text-slate-500">
                       {(dispositivoDetalle.licenciasAsignadas || []).length} asignadas a este dispositivo.
+                      {" "}<Link to="/dashboard/licencias" className="font-semibold text-sky-700 hover:underline">Gestionar en Licencias</Link>
                     </p>
                   </div>
                   <FiKey className="text-slate-400" size={20} />
@@ -514,7 +598,6 @@ const Dispositivos = () => {
         dispositivoInicial={dispositivoEnEdicion}
         cuentasPadre={cuentasPadre}
         cuentasHija={cuentasHija}
-        licencias={licencias}
       />
 
       <ConfirmDialog

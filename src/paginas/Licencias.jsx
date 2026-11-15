@@ -4,7 +4,6 @@ import {
   FiCpu,
   FiDollarSign,
   FiEdit2,
-  FiInfo,
   FiKey,
   FiMonitor,
   FiPlus,
@@ -15,6 +14,7 @@ import {
 import clienteAxios from "../config/clienteAxios.jsx";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import ToastMensaje from "../components/ui/ToastMensaje";
+import { permiteLicencias } from "../utils/equipos.js";
 
 const estadoInicial = {
   nombre: "",
@@ -32,21 +32,6 @@ const estadoInicial = {
   estado: "activa",
   notas: "",
 };
-
-const meses = [
-  "Enero",
-  "Febrero",
-  "Marzo",
-  "Abril",
-  "Mayo",
-  "Junio",
-  "Julio",
-  "Agosto",
-  "Septiembre",
-  "Octubre",
-  "Noviembre",
-  "Diciembre",
-];
 
 const estadoClase = {
   activa: "border-emerald-200 bg-emerald-50 text-emerald-700",
@@ -82,26 +67,16 @@ const formatoDinero = (valor, moneda) => {
 const Licencias = () => {
   const [licencias, setLicencias] = useState([]);
   const [dispositivos, setDispositivos] = useState([]);
-  const [cierres, setCierres] = useState([]);
-  const [previewCierre, setPreviewCierre] = useState(null);
-  const [periodoCierre, setPeriodoCierre] = useState({
-    anio: new Date().getFullYear(),
-    mes: new Date().getMonth() + 1,
-  });
-  const [comentarioCierre, setComentarioCierre] = useState("");
   const [formulario, setFormulario] = useState(estadoInicial);
   const [busqueda, setBusqueda] = useState("");
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
-  const [guardandoCierre, setGuardandoCierre] = useState(false);
-  const [cargandoPreview, setCargandoPreview] = useState(false);
   const [asignando, setAsignando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [liberandoId, setLiberandoId] = useState("");
   const [licenciaEditar, setLicenciaEditar] = useState(null);
   const [licenciaEliminar, setLicenciaEliminar] = useState(null);
   const [licenciaSeleccionada, setLicenciaSeleccionada] = useState(null);
-  const [formulaKpiAbierta, setFormulaKpiAbierta] = useState(false);
   const [dispositivoAsignar, setDispositivoAsignar] = useState("");
   const [busquedaDispositivoAsignar, setBusquedaDispositivoAsignar] = useState("");
   const [notasAsignacion, setNotasAsignacion] = useState("");
@@ -132,22 +107,6 @@ const Licencias = () => {
     cargarLicencias();
   }, []);
 
-  const cargarCierres = async () => {
-    try {
-      const { data } = await clienteAxios.get(`/licencias/cierres?anio=${periodoCierre.anio}`);
-      setCierres(Array.isArray(data) ? data : []);
-    } catch (error) {
-      setMensaje({
-        tipo: "error",
-        texto: error.response?.data?.error || "No fue posible cargar los cierres mensuales.",
-      });
-    }
-  };
-
-  useEffect(() => {
-    cargarCierres();
-  }, [periodoCierre.anio]);
-
   useEffect(() => {
     if (!licenciaSeleccionada) return;
 
@@ -174,7 +133,10 @@ const Licencias = () => {
         .filter(Boolean)
     );
 
-    return dispositivos.filter((dispositivo) => !asignados.has(dispositivo.id));
+    return dispositivos.filter((dispositivo) =>
+      permiteLicencias(dispositivo.tipoEquipo) &&
+      !asignados.has(dispositivo.id)
+    );
   }, [dispositivos, licenciaSeleccionada]);
 
   const dispositivosAsignacionFiltrados = useMemo(() => {
@@ -222,14 +184,6 @@ const Licencias = () => {
 
   const handleChange = (e) => {
     setFormulario((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-  };
-
-  const handlePeriodoCierre = (e) => {
-    setPeriodoCierre((prev) => ({
-      ...prev,
-      [e.target.name]: Number(e.target.value),
-    }));
-    setPreviewCierre(null);
   };
 
   const limpiarFormulario = () => {
@@ -357,56 +311,6 @@ const Licencias = () => {
       });
     } finally {
       setLiberandoId("");
-    }
-  };
-
-  const generarPreviewCierre = async () => {
-    setCargandoPreview(true);
-
-    try {
-      const { data } = await clienteAxios.get(
-        `/licencias/cierres/preview?anio=${periodoCierre.anio}&mes=${periodoCierre.mes}`
-      );
-      setPreviewCierre(data);
-      setComentarioCierre(data.comentario || "");
-    } catch (error) {
-      setMensaje({
-        tipo: "error",
-        texto: error.response?.data?.error || "No fue posible generar el cierre.",
-      });
-    } finally {
-      setCargandoPreview(false);
-    }
-  };
-
-  const guardarCierre = async () => {
-    if (!previewCierre) {
-      setMensaje({ tipo: "error", texto: "Genera una vista previa antes de guardar el cierre." });
-      return;
-    }
-
-    setGuardandoCierre(true);
-
-    try {
-      const { data } = await clienteAxios.post("/licencias/cierres", {
-        ...previewCierre,
-        comentario: comentarioCierre,
-        manual: true,
-      });
-
-      setCierres((prev) => {
-        const existe = prev.some((item) => item.id === data.id);
-        if (existe) return prev.map((item) => (item.id === data.id ? data : item));
-        return [data, ...prev].sort((a, b) => b.mes - a.mes);
-      });
-      setMensaje({ tipo: "success", texto: "Cierre mensual guardado correctamente." });
-    } catch (error) {
-      setMensaje({
-        tipo: "error",
-        texto: error.response?.data?.error || "No fue posible guardar el cierre.",
-      });
-    } finally {
-      setGuardandoCierre(false);
     }
   };
 
@@ -667,153 +571,6 @@ const Licencias = () => {
           </section>
 
           <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-              <div>
-                <div className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">
-                  KPI mensual
-                </div>
-                <h2 className="mt-3 text-lg font-semibold text-slate-900">
-                  Cierre mensual de licencias
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Guarda la foto mensual para reportar licencias utilizadas / contratadas.
-                </p>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-[120px_180px_auto]">
-                <input
-                  type="number"
-                  min="2000"
-                  max="2100"
-                  name="anio"
-                  value={periodoCierre.anio}
-                  onChange={handlePeriodoCierre}
-                  className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-200"
-                />
-                <select
-                  name="mes"
-                  value={periodoCierre.mes}
-                  onChange={handlePeriodoCierre}
-                  className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-200"
-                >
-                  {meses.map((mes, index) => (
-                    <option key={mes} value={index + 1}>
-                      {mes}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={generarPreviewCierre}
-                  disabled={cargandoPreview}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,_#0f172a,_#1e293b,_#334155)] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {cargandoPreview ? "Calculando..." : "Generar cierre"}
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-5 grid gap-5 xl:grid-cols-[0.42fr_0.58fr]">
-              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm font-semibold text-slate-900">
-                  {previewCierre ? `${meses[previewCierre.mes - 1]} ${previewCierre.anio}` : "Vista previa"}
-                </p>
-
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {[
-                    ["Contratadas", previewCierre?.totalContratadas ?? "-"],
-                    ["Utilizadas", previewCierre?.totalUtilizadas ?? "-"],
-                    ["Disponibles", previewCierre?.totalDisponibles ?? "-"],
-                    ["KPI", previewCierre ? `${Number(previewCierre.porcentajeUso || 0).toFixed(2)}%` : "-"],
-                  ].map(([label, valor]) => (
-                    <div key={label} className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</p>
-                        {label === "KPI" ? (
-                          <button
-                            type="button"
-                            onClick={() => setFormulaKpiAbierta(true)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-500 transition hover:border-slate-300 hover:bg-slate-900 hover:text-white"
-                            title="Ver formula KPI"
-                            aria-label="Ver formula KPI de licencias"
-                          >
-                            <FiInfo size={15} />
-                          </button>
-                        ) : null}
-                      </div>
-                      <p className="mt-2 text-2xl font-semibold text-slate-900">{valor}</p>
-                    </div>
-                  ))}
-                </div>
-
-                <label className="mt-4 block">
-                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Comentario</span>
-                  <textarea
-                    value={comentarioCierre}
-                    onChange={(e) => setComentarioCierre(e.target.value)}
-                    rows={3}
-                    className="w-full resize-none rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-200"
-                    placeholder="Notas para el asesor, ajustes o contexto del mes..."
-                  />
-                </label>
-
-                <button
-                  type="button"
-                  onClick={guardarCierre}
-                  disabled={guardandoCierre || !previewCierre}
-                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {guardandoCierre ? "Guardando..." : "Guardar cierre mensual"}
-                </button>
-              </div>
-
-              <div className="overflow-hidden rounded-3xl border border-slate-200">
-                <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
-                  <p className="text-sm font-semibold text-slate-900">Historial de cierres</p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Registros guardados para {periodoCierre.anio}.
-                  </p>
-                </div>
-
-                <div className="max-h-[360px] overflow-y-auto">
-                  <table className="min-w-full text-sm">
-                    <thead className="sticky top-0 bg-slate-50 text-xs uppercase tracking-[0.16em] text-slate-500">
-                      <tr>
-                        <th className="px-4 py-3 text-left">Mes</th>
-                        <th className="px-4 py-3 text-left">Contratadas</th>
-                        <th className="px-4 py-3 text-left">Usadas</th>
-                        <th className="px-4 py-3 text-left">KPI</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 bg-white">
-                      {cierres.length === 0 ? (
-                        <tr>
-                          <td colSpan="4" className="px-4 py-10 text-center text-slate-500">
-                            Sin cierres guardados.
-                          </td>
-                        </tr>
-                      ) : (
-                        cierres.map((cierre) => (
-                          <tr key={cierre.id} className="hover:bg-slate-50">
-                            <td className="px-4 py-3 font-semibold text-slate-900">
-                              {meses[cierre.mes - 1]}
-                            </td>
-                            <td className="px-4 py-3 text-slate-700">{cierre.totalContratadas}</td>
-                            <td className="px-4 py-3 text-slate-700">{cierre.totalUtilizadas}</td>
-                            <td className="px-4 py-3 font-semibold text-slate-900">
-                              {Number(cierre.porcentajeUso || 0).toFixed(2)}%
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <div className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">
@@ -823,7 +580,7 @@ const Licencias = () => {
                   Dispositivos que usan la licencia
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  El porcentaje de uso se calcula con estas asignaciones activas.
+                  Consulta y administra los dispositivos vinculados a cada licencia.
                 </p>
               </div>
 
@@ -834,9 +591,6 @@ const Licencias = () => {
                   </p>
                   <p className="mt-2 text-2xl font-semibold text-slate-900">
                     {licenciaSeleccionada.cantidadUsada}/{licenciaSeleccionada.cantidadTotal}
-                  </p>
-                  <p className="text-xs font-medium text-slate-500">
-                    {Number(licenciaSeleccionada.porcentajeUso || 0).toFixed(1)}% de uso
                   </p>
                 </div>
               ) : null}
@@ -855,7 +609,7 @@ const Licencias = () => {
                 <form onSubmit={asignarDispositivo} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
                   <p className="text-sm font-semibold text-slate-900">Asignar dispositivo</p>
                   <p className="mt-1 text-xs leading-5 text-slate-500">
-                    Se usara el usuario actual del dispositivo como evidencia de quien utiliza la licencia.
+                    Solo puedes vincular laptops, PC de escritorio o mini PC. Se usará el usuario actual del equipo como responsable de uso.
                   </p>
 
                   <div className="mt-4 space-y-3">
@@ -902,7 +656,7 @@ const Licencias = () => {
                           <div className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-300 hover:scrollbar-thumb-slate-400 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400">
                             {dispositivosDisponibles.length === 0 ? (
                               <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">
-                                No hay dispositivos disponibles para esta licencia.
+                                No hay laptops, PC de escritorio o mini PC disponibles para esta licencia.
                               </p>
                             ) : dispositivosAsignacionFiltrados.length === 0 ? (
                               <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">
@@ -960,7 +714,7 @@ const Licencias = () => {
                     <button
                       disabled={
                         asignando ||
-                        !dispositivoAsignar ||
+                        !dispositivoAsignadoSeleccionado ||
                         Number(licenciaSeleccionada.cantidadUsada || 0) >= Number(licenciaSeleccionada.cantidadTotal || 0)
                       }
                       className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,_#0f172a,_#1e293b,_#334155)] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
@@ -1034,63 +788,6 @@ const Licencias = () => {
           </section>
         </div>
       </div>
-
-      {formulaKpiAbierta ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6 sm:px-6">
-          <div className="absolute inset-0 bg-slate-950/55 backdrop-blur-sm" onClick={() => setFormulaKpiAbierta(false)} />
-
-          <div className="relative w-full max-w-xl overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.24)]">
-            <button
-              type="button"
-              onClick={() => setFormulaKpiAbierta(false)}
-              className="absolute right-5 top-5 z-10 flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-xl font-semibold text-slate-500 shadow-sm shadow-slate-200/80 transition hover:-translate-y-0.5 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-rose-100"
-              aria-label="Cerrar formula KPI"
-            >
-              ×
-            </button>
-
-            <div className="border-b border-slate-200 bg-[linear-gradient(135deg,_#f8fafc,_#ffffff)] px-6 py-5">
-              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-white">
-                <FiInfo size={18} />
-              </div>
-              <h2 className="mt-4 pr-12 text-2xl font-semibold text-slate-900">Formula del KPI</h2>
-              <p className="mt-2 text-sm text-slate-500">
-                Este indicador mide el porcentaje de licencias contratadas que estan siendo utilizadas.
-              </p>
-            </div>
-
-            <div className="space-y-4 bg-slate-50 p-6">
-              <div className="rounded-3xl border border-slate-200 bg-white p-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Formula usada</p>
-                <p className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-semibold text-slate-800 shadow-inner shadow-slate-200/60 sm:text-base">
-                  Licencias utilizadas / Licencias contratadas × 100
-                </p>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Utilizadas</p>
-                  <p className="mt-2 text-2xl font-semibold text-slate-900">{previewCierre?.totalUtilizadas ?? "-"}</p>
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Contratadas</p>
-                  <p className="mt-2 text-2xl font-semibold text-slate-900">{previewCierre?.totalContratadas ?? "-"}</p>
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Resultado</p>
-                  <p className="mt-2 text-2xl font-semibold text-slate-900">
-                    {previewCierre ? `${Number(previewCierre.porcentajeUso || 0).toFixed(2)}%` : "-"}
-                  </p>
-                </div>
-              </div>
-
-              <p className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
-                Interpretacion: 100% significa que todas las licencias contratadas estan asignadas. Debajo de 100% indica licencias disponibles o sin usar. Arriba de 100% indicaria sobreasignacion o una diferencia en la captura.
-              </p>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       <ConfirmDialog
         abierto={Boolean(licenciaEliminar)}
