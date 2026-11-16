@@ -17,8 +17,13 @@ import Modal from "react-modal";
 import clienteAxios from "../config/clienteAxios.jsx";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import ToastMensaje from "../components/ui/ToastMensaje";
+import RecurrenciaAgenda from "../components/RecurrenciaAgenda";
 
 Modal.setAppElement("#root");
+
+const nuevaRecurrencia = () => ({
+  frecuencia: "ninguna", intervalo: 1, diasSemana: [], fin: "cantidad", cantidad: 12, hasta: "",
+});
 
 const estadoInicial = {
   titulo: "",
@@ -92,15 +97,12 @@ const nombresMes = [
 const diasSemana = ["Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"];
 
 const hoyISO = () => {
-  const fecha = new Date();
-  fecha.setHours(0, 0, 0, 0);
-  return fecha.toISOString().slice(0, 10);
+  return fechaISO(new Date());
 };
 
 const fechaISO = (fecha) => {
   const copia = new Date(fecha);
-  copia.setHours(0, 0, 0, 0);
-  return copia.toISOString().slice(0, 10);
+  return `${copia.getFullYear()}-${String(copia.getMonth() + 1).padStart(2, "0")}-${String(copia.getDate()).padStart(2, "0")}`;
 };
 
 const normalizarFecha = (valor) => {
@@ -239,6 +241,7 @@ const Agenda = () => {
   const [guardando, setGuardando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [actividadEditar, setActividadEditar] = useState(null);
+  const [recurrencia, setRecurrencia] = useState(nuevaRecurrencia);
   const [actividadEliminar, setActividadEliminar] = useState(null);
   const [modalDiaAbierto, setModalDiaAbierto] = useState(false);
   const [mensaje, setMensaje] = useState({ tipo: "", texto: "" });
@@ -357,10 +360,15 @@ const Agenda = () => {
   const limpiarFormulario = () => {
     setFormulario({ ...estadoInicial, fecha: fechaSeleccionada || hoyISO() });
     setActividadEditar(null);
+    setRecurrencia(nuevaRecurrencia());
   };
 
   const guardarActividad = async (e) => {
     e.preventDefault();
+    if (!actividadEditar && recurrencia.frecuencia === "semanas" && !recurrencia.diasSemana.length) {
+      setMensaje({ tipo: "error", texto: "Selecciona al menos un día de la semana para la serie." });
+      return;
+    }
     setGuardando(true);
 
     try {
@@ -369,9 +377,10 @@ const Agenda = () => {
         setActividades((prev) => prev.map((item) => (item.id === data.id ? data : item)));
         setMensaje({ tipo: "success", texto: "Actividad actualizada correctamente." });
       } else {
-        const { data } = await clienteAxios.post("/agenda", formulario);
-        setActividades((prev) => [...prev, data]);
-        setMensaje({ tipo: "success", texto: "Actividad creada correctamente." });
+        const { data } = await clienteAxios.post("/agenda", { ...formulario, recurrencia });
+        const creadas = Array.isArray(data) ? data : [data];
+        setActividades((prev) => [...prev, ...creadas]);
+        setMensaje({ tipo: "success", texto: Array.isArray(data) ? `Serie creada: ${creadas.length} eventos programados.` : "Actividad creada correctamente." });
       }
 
       limpiarFormulario();
@@ -390,6 +399,7 @@ const Agenda = () => {
 
     setModalDiaAbierto(false);
     setActividadEditar(actividad);
+    setRecurrencia(nuevaRecurrencia());
     setFormulario({
       titulo: actividad.titulo || "",
       descripcion: actividad.descripcion || "",
@@ -479,6 +489,10 @@ const Agenda = () => {
                 <p className="mt-2 text-sm text-slate-500">
                   Organiza actividades y revisa vencimientos importantes desde un calendario operativo.
                 </p>
+                <p className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                  <FiClock className="shrink-0" />
+                  Avisos por correo al comenzar el día, a tu cuenta registrada. Incluyen actividades pendientes y recurrentes.
+                </p>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -548,7 +562,7 @@ const Agenda = () => {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="block">
                     <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                      Fecha
+                      {recurrencia.frecuencia !== "ninguna" ? "Fecha de inicio" : "Fecha"}
                     </span>
                     <input
                       type="date"
@@ -572,6 +586,17 @@ const Agenda = () => {
                     />
                   </label>
                 </div>
+
+                {!actividadEditar ? (
+                  <RecurrenciaAgenda value={recurrencia} onChange={(regla) => {
+                    setRecurrencia(regla);
+                    if (regla.frecuencia !== "ninguna") {
+                      setFormulario((prev) => ({ ...prev, estado: "pendiente", fechaRealizacion: "" }));
+                    }
+                  }} fecha={formulario.fecha} />
+                ) : actividadEditar.serieId ? (
+                  <p className="rounded-xl bg-slate-100 p-3 text-xs text-slate-600">Este evento pertenece a una serie. Los cambios se aplican únicamente a este evento.</p>
+                ) : null}
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="block">
@@ -615,6 +640,7 @@ const Agenda = () => {
                     </span>
                     <select
                       name="estado"
+                      disabled={!actividadEditar && recurrencia.frecuencia !== "ninguna"}
                       value={formulario.estado}
                       onChange={handleChange}
                       className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-200"
@@ -694,7 +720,7 @@ const Agenda = () => {
                     className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,_#0f172a,_#1e293b,_#334155)] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     {actividadEditar ? <FiCheck size={16} /> : <FiPlus size={16} />}
-                    {guardando ? "Guardando..." : actividadEditar ? "Guardar cambios" : "Crear actividad"}
+                    {guardando ? "Guardando..." : actividadEditar ? "Guardar cambios" : recurrencia.frecuencia !== "ninguna" ? "Crear serie de eventos" : "Crear actividad"}
                   </button>
                   {actividadEditar ? (
                     <button
@@ -824,27 +850,29 @@ const Agenda = () => {
                           key={iso}
                           type="button"
                           onClick={() => seleccionarFecha(dia, true)}
+                          aria-current={esHoy ? "date" : undefined}
                           className={`min-h-[7.5rem] rounded-2xl border p-3 text-left transition ${
-                            activo
+                            esHoy
+                              ? `border-gray-400 bg-gray-300 text-gray-900 shadow-sm hover:bg-gray-300 ${activo ? "ring-2 ring-gray-500" : ""}`
+                              : activo
                               ? "border-sky-300 bg-sky-50 text-slate-900 shadow-sm ring-1 ring-sky-100"
-                              : esHoy
-                                ? "border-sky-200 bg-white text-slate-800 ring-2 ring-sky-100 hover:bg-slate-50"
                                 : "border-slate-200 bg-white text-slate-800 hover:bg-slate-50"
                           }`}
                         >
-                          <div className="flex items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
                             <span className={`flex h-8 w-8 items-center justify-center rounded-xl text-sm font-semibold ${
                               esHoy
-                                ? "bg-sky-100 text-sky-700"
+                                ? "bg-gray-600 text-white"
                                 : activo
                                   ? "bg-white text-slate-800"
                                   : "bg-slate-100 text-slate-700"
                             }`}>
                               {dia.getDate()}
                             </span>
+                            {esHoy ? <span className="text-[10px] font-bold uppercase text-gray-700">Hoy</span> : null}
                             {eventosDia.length ? (
                               <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${
-                                activo ? "bg-white text-sky-700" : "bg-slate-100 text-slate-600"
+                                esHoy ? "bg-gray-100 text-gray-800" : activo ? "bg-white text-sky-700" : "bg-slate-100 text-slate-600"
                               }`}>
                                 {eventosDia.length}
                               </span>
@@ -866,7 +894,7 @@ const Agenda = () => {
                               </div>
                             ))}
                             {eventosDia.length > 3 ? (
-                              <p className={`text-[11px] font-semibold ${activo ? "text-sky-700" : "text-slate-400"}`}>
+                              <p className={`text-[11px] font-semibold ${esHoy ? "text-gray-700" : activo ? "text-sky-700" : "text-slate-400"}`}>
                                 +{eventosDia.length - 3} mas
                               </p>
                             ) : null}
@@ -949,6 +977,7 @@ const Agenda = () => {
                         <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${estadoClase[evento.estado] || estadoClase.pendiente}`}>
                           {automatico ? "automatico" : evento.estado}
                         </span>
+                        {evento.serieId ? <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600"><FiRefreshCw size={12} /> Serie</span> : null}
                       </div>
 
                       <h3 className={`mt-3 font-semibold ${completada ? "text-slate-500 line-through" : "text-slate-900"}`}>
@@ -1024,7 +1053,7 @@ const Agenda = () => {
         titulo="Eliminar actividad"
         descripcion={
           actividadEliminar
-            ? `Se eliminara "${actividadEliminar.titulo}". Esta accion no se puede deshacer.`
+            ? `Se eliminara "${actividadEliminar.titulo}".${actividadEliminar.serieId ? " Se eliminará únicamente este evento de la serie." : ""} Esta accion no se puede deshacer.`
             : ""
         }
         textoConfirmar="Eliminar"
