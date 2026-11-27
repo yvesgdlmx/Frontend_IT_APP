@@ -515,7 +515,9 @@ const EspacioTrabajo = () => {
                                   {item.archivos.map((archivo) => (
                                     <a
                                       key={archivo.url}
-                                      href={`${import.meta.env.VITE_BACKEND_URL}${archivo.url}`}
+                                      href={archivo.url?.startsWith("/")
+                                        ? `${import.meta.env.VITE_BACKEND_URL}${archivo.url}`
+                                        : archivo.url}
                                       target="_blank"
                                       rel="noreferrer"
                                       className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-medium text-slate-700 transition hover:bg-white"
